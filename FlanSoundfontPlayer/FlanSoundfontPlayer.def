@@ -1,0 +1,7 @@
+; Osc3_VC.def : Declares the module parameters for the DLL.
+
+LIBRARY      "FlanSoundfontPlayer"
+DESCRIPTION  'FlanSoundfontPlayer Windows Dynamic Link Library'
+
+EXPORTS
+    CreatePlugInstance

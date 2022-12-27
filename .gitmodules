@@ -1,0 +1,3 @@
+[submodule "FlanGUI"]
+	path = FlanGUI
+	url = https://github.com/FlannyH/FlanGUI
