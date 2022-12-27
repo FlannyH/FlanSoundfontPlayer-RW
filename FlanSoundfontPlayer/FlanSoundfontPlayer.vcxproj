@@ -83,10 +83,12 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <IncludePath>$(SolutionDir)..\FlanGUI\External\include;$(ProjectDir)Libraries;$(IncludePath)</IncludePath>
     <ExecutablePath>$(ExecutablePath)</ExecutablePath>
+    <LibraryPath>..\FlanGUI\$(Platform)\$(Configuration);$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <IncludePath>$(SolutionDir)..\FlanGUI\External\include;$(ProjectDir)Libraries;$(IncludePath)</IncludePath>
     <ExecutablePath>$(ExecutablePath)</ExecutablePath>
+    <LibraryPath>..\FlanGUI\$(Platform)\$(Configuration);$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -138,7 +140,7 @@ xcopy "$(OutDir)FlanSoundfontPlayer.dll" "C:\Program Files\Image-Line\FL Studio 
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <ModuleDefinitionFile>FlanSoundfontPlayer.def</ModuleDefinitionFile>
-      <AdditionalDependencies>FlanGUI.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>FlanGUI.res;FlanGUI.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OutDir)</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
@@ -164,7 +166,7 @@ xcopy "$(OutDir)FlanSoundfontPlayer.dll" "C:\Program Files\Image-Line\FL Studio 
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <ModuleDefinitionFile>FlanSoundfontPlayer.def</ModuleDefinitionFile>
-      <AdditionalDependencies>FlanGUI.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>FlanGUI.res;FlanGUI.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OutDir)</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>

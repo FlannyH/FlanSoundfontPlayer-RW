@@ -26,6 +26,13 @@ extern "C" TFruityPlug * _stdcall CreatePlugInstance(TFruityPlugHost* host, int 
     return new FlanSoundfontPlayer(tag, host);
 }
 
+HMODULE dll_handle;
+
+BOOL APIENTRY DllMain(HMODULE module, DWORD reason, LPVOID reserved) {
+    if (reason == DLL_PROCESS_ATTACH) dll_handle = module;
+    return TRUE;
+}
+
 void UpdateRender(FlanSoundfontPlayer* plugin) {
     while (plugin->not_destructing)
     {
@@ -106,7 +113,7 @@ intptr_t _stdcall FlanSoundfontPlayer::Dispatcher(intptr_t id, intptr_t index, i
         else			// show
         {
             //EditorHandle = CreateWindowEx(0, L"SawVCExampleWindow", L"SawVCExampleWindow", WS_CHILD | WS_VISIBLE, 0, 0, 300, 200, (HWND)Value, NULL, 0, NULL);
-            renderer.init(1280, 720, true);
+            renderer.init(1280, 720, true, dll_handle);
             EditorHandle = glfwGetWin32Window(renderer.window());
             SetParent(EditorHandle, (HWND)value);
             SetWindowLong(EditorHandle, GWL_STYLE, WS_CHILD | WS_VISIBLE);
