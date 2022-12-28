@@ -21,6 +21,7 @@ public:
     bool not_destructing = true;
    
 private:
+    void CreateUI();
     GLFWwindow* gl_window;
     std::thread update_render_thread;
 };
