@@ -110,13 +110,6 @@ int main()
     }
     // Create textbox for file browser
     {
-        Flan::Transform box_soundfont_transform{
-            {20, 160},
-            {640, 240},
-            0.5f,
-            Flan::AnchorPoint::top_left
-        };
-        Flan::create_box(scene, "box_soundfont_path", box_soundfont_transform, 2.0f, {1, 1, 1, 1});
         Flan::Transform text_soundfont_transform{
             {30, 160},
             {630, 240},
@@ -128,8 +121,8 @@ int main()
             {2, 2},
             {1, 1, 1, 1},
             Flan::AnchorPoint::left,
-            Flan::AnchorPoint::left
-            });
+            Flan::AnchorPoint::left,
+            }, true);
     }
     // Create button for file browser
     {
@@ -139,9 +132,9 @@ int main()
             0.5f,
             Flan::AnchorPoint::top_left
         };
-        Flan::create_button(scene, button_soundfont_transform, []()
+        Flan::create_button(scene, button_soundfont_transform, [&]()
             {
-                printf("hi1!\n");
+                printf("hi!\n");
             }, { L"...", {2, 2}, {0, 0, 0, 1}, Flan::AnchorPoint::center, Flan::AnchorPoint::center });
     }
 
