@@ -52,8 +52,8 @@ int main()
             0.5f,
             Flan::AnchorPoint::top_left
         };
-        Flan::NumberRange nb_bank_number_range{ 0, 127, 1 };
-        Flan::create_numberbox(scene, "bank", nb_bank_transform, nb_bank_number_range, 0);
+        Flan::NumberRange nb_bank_number_range{ 0, 127, 1, 0, 0 };
+        Flan::create_numberbox(scene, "bank", nb_bank_transform, nb_bank_number_range);
     }
     // Create bank text
     {
@@ -79,8 +79,8 @@ int main()
             0.5f,
             Flan::AnchorPoint::top_left
         };
-        Flan::NumberRange nb_program_number_range{ 0, 127, 1 };
-        Flan::create_numberbox(scene, "program", nb_program_transform, nb_program_number_range, 0);
+        Flan::NumberRange nb_program_number_range{ 0, 127, 1, 0, 0 };
+        Flan::create_numberbox(scene, "program", nb_program_transform, nb_program_number_range);
     }
     // Create preset text
     {
@@ -111,8 +111,8 @@ int main()
     // Create textbox for file browser
     {
         Flan::Transform text_soundfont_transform{
-            {30, 160},
-            {630, 240},
+            {20, 160},
+            {640, 240},
             0.5f,
             Flan::AnchorPoint::top_left
         };
@@ -137,6 +137,47 @@ int main()
                 printf("hi!\n");
             }, { L"...", {2, 2}, {0, 0, 0, 1}, Flan::AnchorPoint::center, Flan::AnchorPoint::center });
     }
+    // Create sliders for ADSR
+    {
+        // Define parameters for loop
+        float stride = 117.0f;
+        std::string names[6] = {
+            "delay",
+            "attack",
+            "hold",
+            "decay",
+            "sustain",
+            "release",
+        };
+        std::wstring text[6] = {
+            L"Delay",
+            L"Attack",
+            L"Hold",
+            L"Decay",
+            L"Sustain",
+            L"Release",
+        };
+        Flan::NumberRange ranges[6] = {
+            {0, 2, 0.01, 0.0, 2}, // delay (seconds)
+            {0, 4, 0.02, 0.0, 2}, // attack (seconds)
+            {0, 4, 0.02, 0.0, 2}, // hold (seconds)
+            {0, 10, 0.05, 0.0, 2}, // decay (seconds)
+            {-40, 40, 0.2, 0.0, 1}, // sustain (dB)
+            {0, 10, 0.05, 0.0, 2}, // release (seconds)
+        };
+        for (size_t i = 0; i < 6; ++i) {
+            Flan::Transform text_transform{
+                {20 + stride * i, 280},
+                {20 + stride * (i + 1), 320},
+            };
+            Flan::Transform slider_transform{
+                {20 + stride * i, 320},
+                {20 + stride * (i + 1), 600},
+            };
+            Flan::create_slider(scene, names[i], slider_transform, ranges[i], true);
+            Flan::create_text(scene, "text_" + names[i], text_transform, {text[i], {2, 2}, {1, 1, 1, 1}, Flan::AnchorPoint::center, Flan::AnchorPoint::center}, false);
+        }
+    }
 
     //--------------------------
 
@@ -147,24 +188,6 @@ int main()
         const float dt = calculate_delta_time();
         time += dt;
         smooth_dt = smooth_dt + (dt - smooth_dt) * (1.f - powf(0.02f, dt));
-        swprintf_s(frametime_text, L"frametime: %.5f ms\nframe rate: %.3f fps\nmouse_pos_absolute: %.0f, %.0f\nmouse_pos_window: %.0f, %.0f\nmouse_pos_relative: %.0f, %.0f\nmouse_buttons = %i%i%i\nmouse_down = %i%i%i\nmouse_up = %i%i%i\nmouse_wheel = %.0f\ndebug_numberbox = %f\ndebug_radio_button = %f\ndebug_combobox = %f\n",
-            smooth_dt * 1000.f,
-            1.0f / smooth_dt,
-            input.mouse_pos(Flan::MouseRelative::absolute).x,
-            input.mouse_pos(Flan::MouseRelative::absolute).y,
-            input.mouse_pos(Flan::MouseRelative::window).x,
-            input.mouse_pos(Flan::MouseRelative::window).y,
-            input.mouse_pos(Flan::MouseRelative::relative).x,
-            input.mouse_pos(Flan::MouseRelative::relative).y,
-            input.mouse_held(0), input.mouse_held(1), input.mouse_held(2),
-            input.mouse_down(0), input.mouse_down(1), input.mouse_down(2),
-            input.mouse_up(0), input.mouse_up(1), input.mouse_up(2),
-            input.mouse_wheel(),
-            Flan::Value::get<double>("debug_numberbox"),
-            Flan::Value::get<double>("debug_radio_button"),
-            Flan::Value::get<double>("debug_combobox")
-        );
-        Flan::Value::set_ptr("debug_text", &frametime_text);
         Flan::update_entities(scene, renderer, input, dt);
 
         renderer.end_frame();
