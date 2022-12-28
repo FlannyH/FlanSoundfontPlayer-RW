@@ -167,16 +167,77 @@ int main()
         };
         for (size_t i = 0; i < 6; ++i) {
             Flan::Transform text_transform{
-                {20 + stride * i, 280},
-                {20 + stride * (i + 1), 320},
+                {20 + stride * i, 320},
+                {20 + stride * (i + 1), 360},
             };
             Flan::Transform slider_transform{
-                {20 + stride * i, 320},
-                {20 + stride * (i + 1), 600},
+                {20 + stride * i, 360},
+                {20 + stride * (i + 1), 640},
             };
             Flan::create_slider(scene, names[i], slider_transform, ranges[i], true);
-            Flan::create_text(scene, "text_" + names[i], text_transform, {text[i], {2, 2}, {1, 1, 1, 1}, Flan::AnchorPoint::center, Flan::AnchorPoint::center}, false);
+            Flan::create_text(scene, "text_" + names[i], text_transform, { text[i], {2, 2}, {1, 1, 1, 1}, Flan::AnchorPoint::center, Flan::AnchorPoint::center }, false);
         }
+
+        Flan::create_text(scene, "text_overrides", {
+            {20, 280},
+            {640, 320},
+            }, { L"Relative volume envelope overrides:", {2, 2}, {1, 1, 1, 1}, Flan::AnchorPoint::left, Flan::AnchorPoint::left}, false);
+    }
+    // Create textbox for scale browser
+    {
+        Flan::Transform text_scale_transform{
+            {760, 60},
+            {1120, 140},
+            0.5f,
+            Flan::AnchorPoint::top_left
+        };
+        Flan::create_text(scene, "text_scale_path", text_scale_transform, {
+            L"12-TET",
+            {2, 2},
+            {1, 1, 1, 1},
+            Flan::AnchorPoint::left,
+            Flan::AnchorPoint::left,
+            }, true);
+    }
+    // Create button for scale browser
+    {
+        Flan::Transform button_scale_transform{
+            {1120, 60},
+            {1200, 140},
+            0.5f,
+            Flan::AnchorPoint::top_left
+        };
+        Flan::create_button(scene, button_scale_transform, [&]()
+            {
+                printf("hi2!\n");
+            }, { L"...", {2, 2}, {0, 0, 0, 1}, Flan::AnchorPoint::center, Flan::AnchorPoint::center });
+    }
+    // Create radio button for sampling mode
+    {
+        Flan::Transform text_sampling_transform{
+            {760, 370},
+            {1260, 450},
+            0.5f,
+            Flan::AnchorPoint::top_left
+        };
+        Flan::Transform radio_button_sampling_transform{
+            {760, 450},
+            {1260, 650},
+            0.5f,
+            Flan::AnchorPoint::top_left
+        };
+        Flan::create_text(scene, "text_sampling_mode", text_sampling_transform, {
+            L"Sampling mode",
+            {3, 3},
+            {1, 1, 1, 1},
+            Flan::AnchorPoint::left,
+            Flan::AnchorPoint::left,
+            }, false);
+        Flan::create_radio_button(scene, "sampling_mode", radio_button_sampling_transform, {
+            L"Point sampling (1-point)",
+            L"Linear sampling (2-point)",
+            L"Gaussian sampling (4-point)",
+            }, 0);
     }
 
     //--------------------------
