@@ -187,7 +187,7 @@ int main()
     {
         Flan::Transform text_scale_transform{
             {760, 60},
-            {1120, 140},
+            {1180, 140},
             0.5f,
             Flan::AnchorPoint::top_left
         };
@@ -202,8 +202,8 @@ int main()
     // Create button for scale browser
     {
         Flan::Transform button_scale_transform{
-            {1120, 60},
-            {1200, 140},
+            {1180, 60},
+            {1260, 140},
             0.5f,
             Flan::AnchorPoint::top_left
         };
