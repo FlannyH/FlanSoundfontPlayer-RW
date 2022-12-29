@@ -1,3 +1,6 @@
 [submodule "FlanGUI"]
 	path = FlanGUI
 	url = https://github.com/FlannyH/FlanGUI
+[submodule "SoundfontStudies"]
+	path = SoundfontStudies
+	url = https://github.com/FlannyH/SoundfontStudies

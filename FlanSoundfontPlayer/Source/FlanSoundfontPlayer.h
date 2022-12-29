@@ -1,11 +1,12 @@
 #pragma once
+#include <thread>
+#include <fstream>
+#include <iostream>
 #include "FruityPlug/fp_cplug.h"
 #include "../../FlanGUI/Renderer.h"
 #include "../../FlanGUI/ComponentSystem.h"
 #include "../../FlanGUI/ComponentsGUI.h"
-#include <thread>
-#include <fstream>
-#include <iostream>
+#include "../../SoundfontStudies/SoundfontStudies/soundfont.h"
 
 class FlanSoundfontPlayer : public TCPPFruityPlug
 {
@@ -21,8 +22,14 @@ public:
     bool not_destructing = true;
    
 private:
+    // UI
     void CreateUI();
+    void UpdatePresetDropdownMenu();
     GLFWwindow* gl_window;
     std::thread update_render_thread;
+    Flan::Combobox* preset_dropdown = nullptr;
+
+    // Soundfont
+    Flan::Soundfont soundfont;
 };
 

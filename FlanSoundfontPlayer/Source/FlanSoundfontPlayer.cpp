@@ -61,6 +61,18 @@ FlanSoundfontPlayer::FlanSoundfontPlayer(int set_tag, TFruityPlugHost* host) : T
 
     // Create our UI elements
     CreateUI();
+
+    // If a soundfont is loaded
+    if (!soundfont.presets.empty()) {
+        UpdatePresetDropdownMenu();
+    }
+    // Otherwise, try to load gm.dls, I mean which Windows PC doesn't have this file, I remember having it on my Windows XP machine
+    else {
+        soundfont.clear();
+        soundfont.from_file("C:/Windows/System32/drivers/gm.dls");
+        //strcpy_s(sf2_path, "C:/Windows/System32/drivers/gm.dls");
+        UpdatePresetDropdownMenu();
+    }
 }
 
 FlanSoundfontPlayer::~FlanSoundfontPlayer()
@@ -215,7 +227,8 @@ void FlanSoundfontPlayer::CreateUI()
             0.1f,
             Flan::AnchorPoint::top_left
         };
-        Flan::create_combobox(scene, "combobox_preset", db_program_transform, { L"000:000 - Piano 1", L"000:001 - Piano 2" });
+        auto combobox_entity = Flan::create_combobox(scene, "combobox_preset", db_program_transform, { L"000:000 - Piano 1", L"000:001 - Piano 2" });
+        preset_dropdown = scene.get_component<Flan::Combobox>(combobox_entity);
     }
     // Create textbox for file browser
     {
@@ -347,5 +360,40 @@ void FlanSoundfontPlayer::CreateUI()
             L"Linear sampling (2-point)",
             L"Gaussian sampling (4-point)",
             }, 0);
+    }
+}
+
+void FlanSoundfontPlayer::UpdatePresetDropdownMenu()
+{
+    // Clear the list of presets
+    preset_dropdown->list_items.clear();
+    for (auto& preset : soundfont.presets) {
+        // Get the bank and program for the current one
+        auto bank = (preset.first & 0xFF00) >> 8;
+        auto program = (preset.first & 0x00FF);
+
+        // Convert name to wstring
+        std::wstring name;
+        name.resize(preset.second.name.length() + 10);
+
+        // Add bank number and program number to the preset name
+        name[0] = L'0' + (bank / 100) % 10;
+        name[1] = L'0' + (bank / 10) % 10;
+        name[2] = L'0' + (bank / 1) % 10;
+        name[3] = ':';
+        name[4] = L'0' + (program / 100) % 10;
+        name[5] = L'0' + (program / 10) % 10;
+        name[6] = L'0' + (program / 1) % 10;
+        name[7] = ' ';
+        name[8] = '-';
+        name[9] = ' ';
+
+        // Add the actual name from the soundfont data
+        for (size_t i = 0; i < preset.second.name.length(); i++) {
+            name[i + 10] = preset.second.name[i];
+        }
+
+        // Add the preset to the list
+        preset_dropdown->list_items.push_back(name);
     }
 }

@@ -140,7 +140,7 @@ xcopy "$(OutDir)FlanSoundfontPlayer.dll" "C:\Program Files\Image-Line\FL Studio 
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <ModuleDefinitionFile>FlanSoundfontPlayer.def</ModuleDefinitionFile>
-      <AdditionalDependencies>FlanGUI.res;FlanGUI.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>SoundfontStudies.lib;FlanGUI.res;FlanGUI.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OutDir)</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
@@ -166,7 +166,7 @@ xcopy "$(OutDir)FlanSoundfontPlayer.dll" "C:\Program Files\Image-Line\FL Studio 
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <ModuleDefinitionFile>FlanSoundfontPlayer.def</ModuleDefinitionFile>
-      <AdditionalDependencies>FlanGUI.res;FlanGUI.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>SoundfontStudies.lib;FlanGUI.res;FlanGUI.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OutDir)</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
