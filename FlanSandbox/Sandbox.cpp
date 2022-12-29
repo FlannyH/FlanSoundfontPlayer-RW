@@ -53,7 +53,12 @@ int main()
             Flan::AnchorPoint::top_left
         };
         Flan::NumberRange nb_bank_number_range{ 0, 127, 1, 0, 0 };
-        Flan::create_numberbox(scene, "bank", nb_bank_transform, nb_bank_number_range);
+        auto entity = Flan::create_numberbox(scene, "bank", nb_bank_transform, nb_bank_number_range);        
+        Flan::add_function(scene, entity, []()
+            {
+                printf("bank value changed!\n");
+            }
+        );
     }
     // Create bank text
     {
@@ -106,7 +111,12 @@ int main()
             0.1f,
             Flan::AnchorPoint::top_left
         };
-        Flan::create_combobox(scene, "combobox_preset", db_program_transform, { L"000:000 - Piano 1", L"000:001 - Piano 2" });
+        auto entity = Flan::create_combobox(scene, "combobox_preset", db_program_transform, { L"000:000 - Piano 1", L"000:001 - Piano 2" });
+        Flan::add_function(scene, entity, []()
+            {
+                printf("preset dropdown changed!\n");
+            }
+        );
     }
     // Create textbox for file browser
     {
@@ -233,11 +243,17 @@ int main()
             Flan::AnchorPoint::left,
             Flan::AnchorPoint::left,
             }, false);
-        Flan::create_radio_button(scene, "sampling_mode", radio_button_sampling_transform, {
+        auto entity = Flan::create_radio_button(scene, "sampling_mode", radio_button_sampling_transform, {
             L"Point sampling (1-point)",
             L"Linear sampling (2-point)",
             L"Gaussian sampling (4-point)",
             }, 0);
+
+        Flan::add_function(scene, entity, []()
+            {
+                printf("sampling mode changed!\n");
+            }
+        );
     }
 
     //--------------------------

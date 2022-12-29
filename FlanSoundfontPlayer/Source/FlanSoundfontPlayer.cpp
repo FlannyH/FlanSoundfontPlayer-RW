@@ -201,7 +201,12 @@ void FlanSoundfontPlayer::CreateUI()
             Flan::AnchorPoint::top_left
         };
         Flan::NumberRange nb_program_number_range{ 0, 127, 1, 0, 0 };
-        Flan::create_numberbox(scene, "program", nb_program_transform, nb_program_number_range);
+        Flan::EntityID entity = Flan::create_numberbox(scene, "program", nb_program_transform, nb_program_number_range);
+        Flan::add_function(scene, entity, []()
+            {
+                printf("bank value changed!\n");
+            }
+        );
     }
     // Create preset text
     {
