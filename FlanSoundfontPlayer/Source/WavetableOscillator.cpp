@@ -36,7 +36,7 @@ namespace Flan {
         const u32 sample_start = preset_zone.sample_start_offset;
         const u32 length = sample.length + (preset_zone.sample_end_offset - preset_zone.sample_start_offset);
         const u32 loop_start = sample.loop_start + preset_zone.sample_loop_start_offset;
-        u32 loop_end = sample.loop_end + preset_zone.sample_loop_end_offset;
+        const u32 loop_end = sample.loop_end + preset_zone.sample_loop_end_offset;
 
         // Loop around sample loop points, to avoid floating point precision errors with high sample position values (yes, this has happened before lmao)
         if (sample_position > static_cast<float>(loop_end)) {
@@ -123,7 +123,7 @@ namespace Flan {
         return { static_cast<sample_t>(sample_l), static_cast<sample_t>(sample_r) };
     }
 
-    float WavetableOscillator::sample_from_index(int index, bool is_linked_sample) {
+    float WavetableOscillator::sample_from_index(int index, bool is_linked_sample) const {
         // This is for interpolation, samples outside the range are zero
         if (index < 0) {
             return 0.0f;
@@ -131,15 +131,15 @@ namespace Flan {
 
         // Handle looping
         const u32 loop_start = sample.loop_start + preset_zone.sample_loop_start_offset;
-        u32 loop_end = sample.loop_end + preset_zone.sample_loop_end_offset;
-        if (preset_zone.loop_enable && index > (int)loop_end) {
-            index -= loop_start;
-            index %= loop_end - loop_start;
-            index += loop_start;
+        const u32 loop_end = sample.loop_end + preset_zone.sample_loop_end_offset;
+        if (preset_zone.loop_enable && index > static_cast<int>(loop_end)) {
+            index -= static_cast<int>(loop_start);
+            index %= static_cast<int>(loop_end - loop_start);
+            index += static_cast<int>(loop_start);
         }
 
         // Fix for crackling on filtered modes
-        if (index >= (int)sample.length) {
+        if (index >= static_cast<int>(sample.length)) {
             return 0.0f;
         }
 

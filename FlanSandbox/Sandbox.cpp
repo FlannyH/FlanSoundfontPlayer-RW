@@ -1,3 +1,5 @@
+#include <chrono>
+
 #include "../FlanGUI/Renderer.h"
 #include "../FlanGUI/ComponentSystem.h"
 #include "../FlanGUI/ComponentsGUI.h"
@@ -24,7 +26,7 @@ int main()
 
     float smooth_dt = 0.0f;
     [[maybe_unused]] float time = 0.0f;
-    wchar_t frametime_text[512];
+    [[maybe_unused]] wchar_t frametime_text[512];
 
     //--------------------------
     // Set up components
@@ -177,12 +179,12 @@ int main()
         };
         for (size_t i = 0; i < 6; ++i) {
             Flan::Transform text_transform{
-                {20 + stride * i, 320},
-                {20 + stride * (i + 1), 360},
+                {20 + stride * static_cast<float>(i), 320},
+                {20 + stride * static_cast<float>(i + 1), 360},
             };
             Flan::Transform slider_transform{
-                {20 + stride * i, 360},
-                {20 + stride * (i + 1), 640},
+                {20 + stride * static_cast<float>(i), 360},
+                {20 + stride * static_cast<float>(i + 1), 640},
             };
             Flan::create_slider(scene, names[i], slider_transform, ranges[i], true);
             Flan::create_text(scene, "text_" + names[i], text_transform, { text[i], {2, 2}, {1, 1, 1, 1}, Flan::AnchorPoint::center, Flan::AnchorPoint::center }, false);

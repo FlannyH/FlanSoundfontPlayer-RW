@@ -10,8 +10,6 @@ namespace Flan {
 
     inline float bell_curve[512]{ 0.0f };
 
-    const float zero = 0.0f;
-
     struct WavetableOscillator
     {
         // todo: remove pointers, make copies, there is no reason for these to be potential cache-misses-to-be
@@ -32,8 +30,9 @@ namespace Flan {
         u8 midi_key = 255;              // The current midi key that's playing
         bool schedule_kill = false;
         PVoiceParams voice_params = nullptr;
+        intptr_t voice_tag = 0;
 
         BufferSample get_sample(float time_per_sample, float pitch_wheel, const int filter_mode = true);
-        float sample_from_index(int index, bool is_linked_sample);
+        [[nodiscard]] float sample_from_index(int index, bool is_linked_sample) const;
     };
 }

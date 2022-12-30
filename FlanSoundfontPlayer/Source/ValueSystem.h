@@ -38,14 +38,14 @@ namespace Flan {
         template<typename T>
         T& get(const std::string& name) {
             static_assert(sizeof(T) <= sizeof(uint64_t));
-            return (T&)(values[name]);
+            return reinterpret_cast<T&>(values[name]);
         }
 
         // Set the current value
         template<typename T>
         void set_value(const std::string& name, T value) {
             static_assert(sizeof(T) <= sizeof(uint64_t));
-            values[name] = *(uint64_t*)&value;
+            values[name] = *reinterpret_cast<uint64_t*>(&value);
         }
 
         // Set the current pointer
@@ -90,7 +90,7 @@ namespace Flan {
         template<typename T>
         T& get_as_ref() {
             static_assert(sizeof(T) <= sizeof(uint64_t));
-            return (T&)(value_pool.values[name]);
+            return reinterpret_cast<T&>(value_pool.values[name]);
         }
         template<typename T>
         T* get_as_ptr() {
@@ -101,7 +101,7 @@ namespace Flan {
         template<typename T>
         void set(T value) {
             static_assert(sizeof(T) <= sizeof(uint64_t));
-            get_as_ref<T>() = (T)value;
+            get_as_ref<T>() = static_cast<T>(value);
             has_changed = true;
         }
     };

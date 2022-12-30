@@ -2,6 +2,8 @@
 #include <thread>
 #include <fstream>
 #include <iostream>
+#include <mutex>
+
 #include "FruityPlug/fp_cplug.h"
 #include "../../FlanGUI/Renderer.h"
 #include "../../FlanGUI/ComponentSystem.h"
@@ -10,11 +12,11 @@
 #include "WavetableOscillator.h"
 #define N_WAVE_OSCS 64
 
-class FlanSoundfontPlayer : public TCPPFruityPlug
+class FlanSoundfontPlayer final : public TCPPFruityPlug
 {
 public:
     FlanSoundfontPlayer(int set_tag, TFruityPlugHost* host);
-    ~FlanSoundfontPlayer();
+    ~FlanSoundfontPlayer() override;
     intptr_t _stdcall Dispatcher(intptr_t id, intptr_t index, intptr_t value) override;
     TVoiceHandle _stdcall TriggerVoice(PVoiceParams voice_params, intptr_t set_tag) override;
     void _stdcall Voice_Release(TVoiceHandle handle) override;
@@ -27,28 +29,30 @@ public:
     Flan::Input* input = nullptr;
     bool window_safe = false;
     bool not_destructing = true;
-   
+    std::mutex graphics_thread_lock;
+
 private:
     // UI
-    void CreateUI();
-    void UpdatePresetDropdownMenu();
-    GLFWwindow* gl_window;
-    std::thread update_render_thread;
-    Flan::Combobox* preset_dropdown = nullptr;
+    void create_ui();
+    void update_preset_dropdown_menu();
+    std::thread m_update_render_thread;
+    Flan::Combobox* m_preset_dropdown = nullptr;
 
     // Soundfont
-    Flan::Soundfont soundfont;
+    Flan::Soundfont m_soundfont;
 
     // Voices
-    Flan::WavetableOscillator wave_oscs[N_WAVE_OSCS]{};
-    std::vector<Flan::WavetableOscillator*> active_wave_oscs;
-    size_t curr_wave_osc_idx = 0;
+    [[deprecated]] Flan::WavetableOscillator m_wave_oscs[N_WAVE_OSCS]{};
+    std::vector<Flan::WavetableOscillator*> m_active_wave_oscs;
+    [[deprecated]] size_t m_curr_wave_osc_idx = 0;
+    std::mutex m_note_playing_mutex;
+    float m_midi_pitch = 0.0f;
 
     // Optimizations
-    std::vector<u16> dropdown_indices_inverse;
-    std::map<u16, int> dropdown_indices;
+    std::vector<u16> m_dropdown_indices_inverse;
+    std::map<u16, int> m_dropdown_indices;
 
     // Debug
-    wchar_t debug_buffer[1024] = { 0 };
+    wchar_t m_debug_buffer[1024] = { 0 };
 };
 
