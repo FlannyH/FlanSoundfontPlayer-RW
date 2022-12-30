@@ -30,6 +30,7 @@ namespace Flan {
         float initial_channel_pitch = 0.0f;      // Pitch data supplied from external source like a DAW
         float channel_pitch = 0.0f;      // Pitch data supplied from external source like a DAW
         u8 midi_key = 255;              // The current midi key that's playing
+        bool schedule_kill = false;
         PVoiceParams voice_params = nullptr;
 
         BufferSample get_sample(float time_per_sample, float pitch_wheel, const int filter_mode = true);

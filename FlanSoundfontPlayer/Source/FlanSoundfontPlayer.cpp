@@ -142,7 +142,7 @@ intptr_t _stdcall FlanSoundfontPlayer::Dispatcher(intptr_t id, intptr_t index, i
 
         // set the samplerate
     case FPD_SetSampleRate:
-        AudioRenderer.setSmpRate(value);
+        AudioRenderer.setSmpRate(*(int*)&value);
         PitchMul = (float)(MiddleCMul / AudioRenderer.getSmpRate());
         break;
     }
@@ -275,7 +275,7 @@ int _stdcall FlanSoundfontPlayer::ProcessEvent(int event_id, int event_value, in
 {
     switch (event_id) {
     case FPE_Tempo:
-        swprintf_s(debug_buffer, L"Tempo changed to %f", event_value);
+        swprintf_s(debug_buffer, L"Tempo changed to %f", *(float*)&event_value);
         break;
     case FPE_MaxPoly:
         swprintf_s(debug_buffer, L"Max polyphony changed to %i", event_value);
@@ -299,6 +299,7 @@ int _stdcall FlanSoundfontPlayer::ProcessEvent(int event_id, int event_value, in
 
 void _stdcall FlanSoundfontPlayer::Gen_Render(PWAV32FS dest_buffer, int& length)
 {
+    // Fill buffer
     float* dest = (float*)dest_buffer;
     for (int j = 0; j < length; j++) {
         sample_t total_l = 0;
@@ -312,6 +313,15 @@ void _stdcall FlanSoundfontPlayer::Gen_Render(PWAV32FS dest_buffer, int& length)
         }
         dest[(j * 2) + 0] = total_l;
         dest[(j * 2) + 1] = total_r;
+    }
+
+    // Kill dead voices
+    for (auto& wave_osc : wave_oscs) {
+        if (wave_osc.schedule_kill) {
+            PlugHost->Voice_Kill((intptr_t)&wave_osc, false);
+            wave_osc.midi_key = 255;
+            wave_osc.schedule_kill = false;
+        }
     }
 }
 
@@ -629,7 +639,7 @@ void FlanSoundfontPlayer::UpdatePresetDropdownMenu()
         preset_dropdown->list_items.push_back(name);
 
         // Add the index to the indices map, so we can update dropdown menu when the bank/program numberboxes update
-        dropdown_indices[preset.first] = dropdown_indices_inverse.size();
+        dropdown_indices[preset.first] = (int)dropdown_indices_inverse.size();
 
         // Add the bank and program to the inverse list, so we can update the bank and program number boxes when the dropdown menu updates
         dropdown_indices_inverse.push_back(preset.first);

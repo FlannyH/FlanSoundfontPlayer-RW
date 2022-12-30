@@ -5,6 +5,9 @@ namespace Flan {
     BufferSample WavetableOscillator::get_sample(const float time_per_sample, const float pitch_wheel, const int filter_mode) {
         // Immediately skip inactive stage
         if (static_cast<envStage>(vol_env.stage) == off) {
+            if (midi_key != 255) {
+                schedule_kill = true;
+            }
             return { static_cast<sample_t>(0.0f), static_cast<sample_t>(0.0f) };
         }
 
@@ -129,14 +132,14 @@ namespace Flan {
         // Handle looping
         const u32 loop_start = sample.loop_start + preset_zone.sample_loop_start_offset;
         u32 loop_end = sample.loop_end + preset_zone.sample_loop_end_offset;
-        if (preset_zone.loop_enable && index > loop_end) {
+        if (preset_zone.loop_enable && index > (int)loop_end) {
             index -= loop_start;
             index %= loop_end - loop_start;
             index += loop_start;
         }
 
         // Fix for crackling on filtered modes
-        if (index >= sample.length) {
+        if (index >= (int)sample.length) {
             return 0.0f;
         }
 
