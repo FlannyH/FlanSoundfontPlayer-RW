@@ -188,6 +188,7 @@ xcopy "$(OutDir)FlanSoundfontPlayer.dll" "C:\Program Files\Image-Line\FL Studio 
     <ClCompile Include="Libraries\FruityPlug\fp_pathmanager.cpp" />
     <ClCompile Include="Libraries\FruityPlug\fp_plugclass.cpp" />
     <ClCompile Include="Source\main.cpp" />
+    <ClCompile Include="Source\WavetableOscillator.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Logging.h" />
@@ -198,6 +199,7 @@ xcopy "$(OutDir)FlanSoundfontPlayer.dll" "C:\Program Files\Image-Line\FL Studio 
     <ClInclude Include="Libraries\FruityPlug\fp_pathmanager.h" />
     <ClInclude Include="Libraries\FruityPlug\fp_plugclass.h" />
     <ClInclude Include="Libraries\FruityPlug\generictransport.h" />
+    <ClInclude Include="Source\WavetableOscillator.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="FlanSoundfontPlayer.def" />

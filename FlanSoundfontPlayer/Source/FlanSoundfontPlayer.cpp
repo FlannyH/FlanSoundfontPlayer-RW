@@ -29,7 +29,8 @@ extern "C" TFruityPlug * _stdcall CreatePlugInstance(TFruityPlugHost* host, int 
 HMODULE dll_handle;
 
 BOOL APIENTRY DllMain(HMODULE module, DWORD reason, LPVOID reserved) {
-    if (reason == DLL_PROCESS_ATTACH) dll_handle = module;
+    if (reason == DLL_PROCESS_ATTACH) 
+        dll_handle = module;
     return TRUE;
 }
 
@@ -53,6 +54,9 @@ FlanSoundfontPlayer::FlanSoundfontPlayer(int set_tag, TFruityPlugHost* host) : T
     // Set plugin info so FL Studio knows what type of plugin this is
     Info = &plug_info;
 
+    // Initialize renderer
+    renderer.init(1280, 720, true, dll_handle);
+
     // Attach our OpenGL window to the FL plugin, by getting the HWND from our GLFWwindow and passing it to the plugin struct
     EditorHandle = glfwGetWin32Window(renderer.window());
 
@@ -72,6 +76,12 @@ FlanSoundfontPlayer::FlanSoundfontPlayer(int set_tag, TFruityPlugHost* host) : T
         soundfont.from_file("C:/Windows/System32/drivers/gm.dls");
         //strcpy_s(sf2_path, "C:/Windows/System32/drivers/gm.dls");
         UpdatePresetDropdownMenu();
+    }
+
+    // Init wave oscillators to off
+    for (auto& wave_osc : wave_oscs)
+    {
+        wave_osc.vol_env.stage = static_cast<float>(Flan::envStage::off);
     }
 }
 
@@ -141,6 +151,170 @@ intptr_t _stdcall FlanSoundfontPlayer::Dispatcher(intptr_t id, intptr_t index, i
     return 0;
 }
 
+TVoiceHandle _stdcall FlanSoundfontPlayer::TriggerVoice(PVoiceParams voice_params, intptr_t set_tag)
+{
+    Flan::WavetableOscillator* return_value = nullptr;
+
+    // Debug
+    swprintf_s(debug_buffer, L"InitLevels:\n\tPan:\t%f\n\tVol:\t%f\n\tPitch:\t%f\n\tFCut:\t%f\n\tFRes:\t%f\nFinalLevels:\n\tPan:\t%f\n\tVol:\t%f\n\tPitch:\t%f\n\tFCut:\t%f\n\tFRes:\t%f\n", 
+        voice_params->InitLevels.Pan,
+        voice_params->InitLevels.Vol,
+        voice_params->InitLevels.Pitch,
+        voice_params->InitLevels.FCut,
+        voice_params->InitLevels.FRes,      
+        voice_params->FinalLevels.Pan,
+        voice_params->FinalLevels.Vol,
+        voice_params->FinalLevels.Pitch,
+        voice_params->FinalLevels.FCut,
+        voice_params->FinalLevels.FRes
+    );
+
+    Flan::Value::set_ptr<wchar_t>("text_debug", debug_buffer);
+
+    // Get preset from currently selected index
+    const Flan::Preset& preset = soundfont.presets[dropdown_indices_inverse[preset_dropdown->current_selected_index]];
+
+    // Get midi information
+    float corrected_key = 60 + (voice_params->FinalLevels.Pitch / 100);
+    int key = (int)(60 + (voice_params->FinalLevels.Pitch / 100));
+    int vel = (int)(voice_params->InitLevels.Vol * 63.0f);
+
+    // Loop over all preset zones to figure out for which ones the key and the velocity are inside the range
+    for (auto& zone : preset.zones) {
+        // for the zones that fit that criteria:
+        if (static_cast<u8>(corrected_key) >= zone.key_range_low &&
+            static_cast<u8>(corrected_key) <= zone.key_range_high &&
+            vel >= zone.vel_range_low &&
+            vel <= zone.vel_range_high
+            ) {
+
+            // find a free wavetable oscillator spot in the array
+            auto& wave_osc = wave_oscs[curr_wave_osc_idx];
+            return_value = &wave_osc;
+            curr_wave_osc_idx = (curr_wave_osc_idx + 1) % N_WAVE_OSCS;
+            {
+                // init sample and preset pointers
+                wave_osc.sample = soundfont.samples[zone.sample_index];
+                wave_osc.preset_zone = zone;
+
+                // apply overrides
+                if (Flan::Value::get<double>("delay") != 0.0) {
+                    wave_osc.preset_zone.vol_env.delay = 1.0f / static_cast<float>(Flan::Value::get<double>("delay"));
+                }
+                if (Flan::Value::get<double>("attack") != 0.0) {
+                    wave_osc.preset_zone.vol_env.attack = 1.0f / static_cast<float>(Flan::Value::get<double>("attack"));
+                }
+                if (Flan::Value::get<double>("hold") != 0.0) {
+                    wave_osc.preset_zone.vol_env.hold = 1.0f / static_cast<float>(Flan::Value::get<double>("hold"));
+                }
+                if (Flan::Value::get<double>("decay") != 0.0) {
+                    wave_osc.preset_zone.vol_env.decay = 100.0f / static_cast<float>(Flan::Value::get<double>("decay"));
+                }
+                if (Flan::Value::get<double>("sustain") != 0.0) {
+                    wave_osc.preset_zone.vol_env.sustain = static_cast<float>(Flan::Value::get<double>("sustain"));
+                }
+                if (Flan::Value::get<double>("release") != 0.0) {
+                    wave_osc.preset_zone.vol_env.release = 100.0f / static_cast<float>(Flan::Value::get<double>("release"));
+                }
+
+                // init sample position and adsr_volume to 0.0
+                wave_osc.sample_position = 0.0f;
+                wave_osc.vol_env.value = 0.0f;
+                wave_osc.mod_env.value = 0.0f;
+
+                // init adsr_stage to Delay
+                wave_osc.vol_env.stage = static_cast<float>(Flan::envStage::delay);
+                wave_osc.mod_env.stage = static_cast<float>(Flan::envStage::delay);
+
+                // init lfo
+                wave_osc.vib_lfo.time = 0.0f;
+                wave_osc.vib_lfo.state = 0.0f;
+                wave_osc.mod_lfo.time = 0.0f;
+                wave_osc.mod_lfo.state = 0.0f;
+
+                // init filter
+                wave_osc.filter = zone.filter;
+
+                // set midi key, velocity to note_on event key, velocity
+                wave_osc.midi_key = static_cast<u8>(key);
+                if (zone.vel_override < 128)
+                    vel = zone.vel_override;
+                wave_osc.initial_channel_pitch = voice_params->FinalLevels.Pitch;
+                wave_osc.voice_params = voice_params;
+                wave_osc.channel_pitch = 0.0f;
+
+                // init sample_delta
+                const float pitch_correction = (wave_osc.channel_pitch / 100.0f) + static_cast<float>(zone.root_key_offset) + static_cast<float>(zone.tuning);
+                if (zone.key_override < 128)
+                    key = zone.key_override;
+                const float scaled_key = ((static_cast<float>(key - 60) * zone.scale_tuning));
+                const float key_multiplier = powf(2.0f, (scaled_key) / 12.f); /*Flan::lerp(
+                    curr_scale[static_cast<size_t>(scaled_key)],
+                    curr_scale[static_cast<size_t>(scaled_key) + 1],
+                    fmodf(scaled_key, 1.0f));*/ // todo: make this work with scales
+                wave_osc.sample_delta = (wave_osc.sample.base_sample_rate * key_multiplier * (powf(2.0f, pitch_correction / 12.0f))) / 44100.f;
+                wave_osc.preset_zone.vol_env.hold *= powf(2.f, wave_osc.preset_zone.key_to_vol_env_hold * static_cast<float>(key - 60) / (1200));
+                wave_osc.preset_zone.vol_env.decay *= powf(2.f, wave_osc.preset_zone.key_to_vol_env_decay * static_cast<float>(key - 60) / (1200));
+                wave_osc.preset_zone.mod_env.hold *= powf(2.f, wave_osc.preset_zone.key_to_mod_env_hold * static_cast<float>(key - 60) / (1200));
+                wave_osc.preset_zone.mod_env.decay *= powf(2.f, wave_osc.preset_zone.key_to_mod_env_decay * static_cast<float>(key - 60) / (1200));
+            }
+        }
+    }
+    // Start note
+    return (TVoiceHandle)return_value;
+}
+
+void _stdcall FlanSoundfontPlayer::Voice_Release(TVoiceHandle handle)
+{
+    Flan::WavetableOscillator* wave_osc = (Flan::WavetableOscillator*)handle;
+    wave_osc->vol_env.stage = Flan::envStage::release;
+}
+
+// MIDI values here used for pitch wheel
+int _stdcall FlanSoundfontPlayer::ProcessEvent(int event_id, int event_value, int flags)
+{
+    switch (event_id) {
+    case FPE_Tempo:
+        swprintf_s(debug_buffer, L"Tempo changed to %f", event_value);
+        break;
+    case FPE_MaxPoly:
+        swprintf_s(debug_buffer, L"Max polyphony changed to %i", event_value);
+        break;
+    case FPE_MIDI_Pan:
+        swprintf_s(debug_buffer, L"MIDI Pan changed to %i", event_value);
+        break;
+    case FPE_MIDI_Vol:
+        swprintf_s(debug_buffer, L"MIDI Vol changed to %i", event_value);
+        break;
+    case FPE_MIDI_Pitch:
+        swprintf_s(debug_buffer, L"MIDI Pitch changed to %i", event_value);
+        break;
+    default:
+        return 0;
+        break;
+    }
+    Flan::Value::set_ptr<wchar_t>("text_debug", debug_buffer);
+    return 0;
+}
+
+void _stdcall FlanSoundfontPlayer::Gen_Render(PWAV32FS dest_buffer, int& length)
+{
+    float* dest = (float*)dest_buffer;
+    for (int j = 0; j < length; j++) {
+        sample_t total_l = 0;
+        sample_t total_r = 0;
+        for (auto& wave_osc : wave_oscs) {
+            // todo: un-hardcode the sample rate
+            // todo: implement pitch wheel and note slides
+            const Flan::BufferSample sample = wave_osc.get_sample(1.0f / 44100.0f, 0.0f, static_cast<int>(Flan::Value::get<double>("sampling_mode")));
+            total_l += sample.left;
+            total_r += sample.right;
+        }
+        dest[(j * 2) + 0] = total_l;
+        dest[(j * 2) + 1] = total_r;
+    }
+}
+
 void _stdcall FlanSoundfontPlayer::Idle()
 {
 }
@@ -174,9 +348,24 @@ void FlanSoundfontPlayer::CreateUI()
             Flan::AnchorPoint::top_left
         };
         Flan::NumberRange nb_bank_number_range{ 0, 127, 1, 0, 0 };
-        Flan::create_numberbox(scene, "bank", nb_bank_transform, nb_bank_number_range);
+        auto entity = Flan::create_numberbox(scene, "bank", nb_bank_transform, nb_bank_number_range);
+        Flan::add_function(scene, entity, [&]() {
+            // Get current values of bank and program
+            u16 bank = (u16)Flan::Value::get<double>("bank");
+            u16 program = (u16)Flan::Value::get<double>("program");
+            u16 preset_key = (bank << 8) | program;
+
+            // If the soundfont does not contain a preset at this key, the selection is invalid
+            if (!soundfont.presets.contains(preset_key)) {
+                preset_dropdown->current_selected_index = -1;
+                return;
+            }
+
+            // Otherwise, set the current index of the dropdown to match the preset
+            preset_dropdown->current_selected_index = dropdown_indices[preset_key];
+        });
     }
-    // Create bank text
+    // Create program text
     {
         Flan::Transform text_program_transform{
             {180, 20},
@@ -192,7 +381,7 @@ void FlanSoundfontPlayer::CreateUI()
             Flan::AnchorPoint::center
             });
     }
-    // Create bank numberbox
+    // Create program numberbox
     {
         Flan::Transform nb_program_transform{
             {180, 60},
@@ -202,11 +391,22 @@ void FlanSoundfontPlayer::CreateUI()
         };
         Flan::NumberRange nb_program_number_range{ 0, 127, 1, 0, 0 };
         Flan::EntityID entity = Flan::create_numberbox(scene, "program", nb_program_transform, nb_program_number_range);
-        Flan::add_function(scene, entity, []()
-            {
-                printf("bank value changed!\n");
+
+        Flan::add_function(scene, entity, [&]() {
+            // Get current values of bank and program
+            u16 bank = (u16)Flan::Value::get<double>("bank");
+            u16 program = (u16)Flan::Value::get<double>("program");
+            u16 preset_key = (bank << 8) | program;
+
+            // If the soundfont does not contain a preset at this key, the selection is invalid
+            if (!soundfont.presets.contains(preset_key)) {
+                preset_dropdown->current_selected_index = -1;
+                return;
             }
-        );
+
+            // Otherwise, set the current index of the dropdown to match the preset
+            preset_dropdown->current_selected_index = dropdown_indices[preset_key];
+        });
     }
     // Create preset text
     {
@@ -234,6 +434,13 @@ void FlanSoundfontPlayer::CreateUI()
         };
         auto combobox_entity = Flan::create_combobox(scene, "combobox_preset", db_program_transform, { L"000:000 - Piano 1", L"000:001 - Piano 2" });
         preset_dropdown = scene.get_component<Flan::Combobox>(combobox_entity);
+        Flan::add_function(scene, combobox_entity, [&]() {
+            auto index = preset_dropdown->current_selected_index;
+            double bank = (double)(dropdown_indices_inverse[index] >> 8);
+            double program = (double)(dropdown_indices_inverse[index] & 0xFF);
+            Flan::Value::set_value<double>("program", program);
+            Flan::Value::set_value<double>("bank", bank);
+        });
     }
     // Create textbox for file browser
     {
@@ -366,12 +573,32 @@ void FlanSoundfontPlayer::CreateUI()
             L"Gaussian sampling (4-point)",
             }, 0);
     }
+    // Debug text
+    {
+        Flan::Transform text_debug_transform{
+            {760, 120},
+            {1260, 370},
+            0.5f,
+            Flan::AnchorPoint::top_left
+        };
+        Flan::create_text(scene, "text_debug", text_debug_transform, {
+            L"debug text!",
+            {1, 1},
+            {1, 1, 1, 1},
+            Flan::AnchorPoint::left,
+            Flan::AnchorPoint::left,
+            }, false);
+    }
 }
 
 void FlanSoundfontPlayer::UpdatePresetDropdownMenu()
 {
     // Clear the list of presets
     preset_dropdown->list_items.clear();
+    dropdown_indices.clear();
+    dropdown_indices_inverse.clear();
+
+    // Loop over all the soundfont presets
     for (auto& preset : soundfont.presets) {
         // Get the bank and program for the current one
         auto bank = (preset.first & 0xFF00) >> 8;
@@ -400,5 +627,12 @@ void FlanSoundfontPlayer::UpdatePresetDropdownMenu()
 
         // Add the preset to the list
         preset_dropdown->list_items.push_back(name);
+
+        // Add the index to the indices map, so we can update dropdown menu when the bank/program numberboxes update
+        dropdown_indices[preset.first] = dropdown_indices_inverse.size();
+
+        // Add the bank and program to the inverse list, so we can update the bank and program number boxes when the dropdown menu updates
+        dropdown_indices_inverse.push_back(preset.first);
+
     }
 }
