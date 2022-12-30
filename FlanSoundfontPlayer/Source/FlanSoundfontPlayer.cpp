@@ -169,7 +169,7 @@ TVoiceHandle _stdcall FlanSoundfontPlayer::TriggerVoice(PVoiceParams voice_param
         voice_params->FinalLevels.FRes
     );
 
-    Flan::Value::set_ptr<wchar_t>("text_debug", debug_buffer);
+    scene.value_pool.set_ptr<wchar_t>("text_debug", debug_buffer);
 
     // Get preset from currently selected index
     const Flan::Preset& preset = soundfont.presets[dropdown_indices_inverse[preset_dropdown->current_selected_index]];
@@ -198,23 +198,23 @@ TVoiceHandle _stdcall FlanSoundfontPlayer::TriggerVoice(PVoiceParams voice_param
                 wave_osc.preset_zone = zone;
 
                 // apply overrides
-                if (Flan::Value::get<double>("delay") != 0.0) {
-                    wave_osc.preset_zone.vol_env.delay = 1.0f / static_cast<float>(Flan::Value::get<double>("delay"));
+                if (scene.value_pool.get<double>("delay") != 0.0) {
+                    wave_osc.preset_zone.vol_env.delay = 1.0f / static_cast<float>(scene.value_pool.get<double>("delay"));
                 }
-                if (Flan::Value::get<double>("attack") != 0.0) {
-                    wave_osc.preset_zone.vol_env.attack = 1.0f / static_cast<float>(Flan::Value::get<double>("attack"));
+                if (scene.value_pool.get<double>("attack") != 0.0) {
+                    wave_osc.preset_zone.vol_env.attack = 1.0f / static_cast<float>(scene.value_pool.get<double>("attack"));
                 }
-                if (Flan::Value::get<double>("hold") != 0.0) {
-                    wave_osc.preset_zone.vol_env.hold = 1.0f / static_cast<float>(Flan::Value::get<double>("hold"));
+                if (scene.value_pool.get<double>("hold") != 0.0) {
+                    wave_osc.preset_zone.vol_env.hold = 1.0f / static_cast<float>(scene.value_pool.get<double>("hold"));
                 }
-                if (Flan::Value::get<double>("decay") != 0.0) {
-                    wave_osc.preset_zone.vol_env.decay = 100.0f / static_cast<float>(Flan::Value::get<double>("decay"));
+                if (scene.value_pool.get<double>("decay") != 0.0) {
+                    wave_osc.preset_zone.vol_env.decay = 100.0f / static_cast<float>(scene.value_pool.get<double>("decay"));
                 }
-                if (Flan::Value::get<double>("sustain") != 0.0) {
-                    wave_osc.preset_zone.vol_env.sustain = static_cast<float>(Flan::Value::get<double>("sustain"));
+                if (scene.value_pool.get<double>("sustain") != 0.0) {
+                    wave_osc.preset_zone.vol_env.sustain = static_cast<float>(scene.value_pool.get<double>("sustain"));
                 }
-                if (Flan::Value::get<double>("release") != 0.0) {
-                    wave_osc.preset_zone.vol_env.release = 100.0f / static_cast<float>(Flan::Value::get<double>("release"));
+                if (scene.value_pool.get<double>("release") != 0.0) {
+                    wave_osc.preset_zone.vol_env.release = 100.0f / static_cast<float>(scene.value_pool.get<double>("release"));
                 }
 
                 // init sample position and adsr_volume to 0.0
@@ -293,7 +293,7 @@ int _stdcall FlanSoundfontPlayer::ProcessEvent(int event_id, int event_value, in
         return 0;
         break;
     }
-    Flan::Value::set_ptr<wchar_t>("text_debug", debug_buffer);
+    scene.value_pool.set_ptr<wchar_t>("text_debug", debug_buffer);
     return 0;
 }
 
@@ -306,7 +306,7 @@ void _stdcall FlanSoundfontPlayer::Gen_Render(PWAV32FS dest_buffer, int& length)
         for (auto& wave_osc : wave_oscs) {
             // todo: un-hardcode the sample rate
             // todo: implement pitch wheel and note slides
-            const Flan::BufferSample sample = wave_osc.get_sample(1.0f / 44100.0f, 0.0f, static_cast<int>(Flan::Value::get<double>("sampling_mode")));
+            const Flan::BufferSample sample = wave_osc.get_sample(1.0f / 44100.0f, 0.0f, static_cast<int>(scene.value_pool.get<double>("sampling_mode")));
             total_l += sample.left;
             total_r += sample.right;
         }
@@ -351,8 +351,8 @@ void FlanSoundfontPlayer::CreateUI()
         auto entity = Flan::create_numberbox(scene, "bank", nb_bank_transform, nb_bank_number_range);
         Flan::add_function(scene, entity, [&]() {
             // Get current values of bank and program
-            u16 bank = (u16)Flan::Value::get<double>("bank");
-            u16 program = (u16)Flan::Value::get<double>("program");
+            u16 bank = (u16)scene.value_pool.get<double>("bank");
+            u16 program = (u16)scene.value_pool.get<double>("program");
             u16 preset_key = (bank << 8) | program;
 
             // If the soundfont does not contain a preset at this key, the selection is invalid
@@ -394,8 +394,8 @@ void FlanSoundfontPlayer::CreateUI()
 
         Flan::add_function(scene, entity, [&]() {
             // Get current values of bank and program
-            u16 bank = (u16)Flan::Value::get<double>("bank");
-            u16 program = (u16)Flan::Value::get<double>("program");
+            u16 bank = (u16)scene.value_pool.get<double>("bank");
+            u16 program = (u16)scene.value_pool.get<double>("program");
             u16 preset_key = (bank << 8) | program;
 
             // If the soundfont does not contain a preset at this key, the selection is invalid
@@ -438,8 +438,8 @@ void FlanSoundfontPlayer::CreateUI()
             auto index = preset_dropdown->current_selected_index;
             double bank = (double)(dropdown_indices_inverse[index] >> 8);
             double program = (double)(dropdown_indices_inverse[index] & 0xFF);
-            Flan::Value::set_value<double>("program", program);
-            Flan::Value::set_value<double>("bank", bank);
+            scene.value_pool.set_value<double>("program", program);
+            scene.value_pool.set_value<double>("bank", bank);
         });
     }
     // Create textbox for file browser
