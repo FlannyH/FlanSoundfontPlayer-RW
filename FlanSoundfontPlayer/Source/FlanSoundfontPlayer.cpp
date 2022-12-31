@@ -515,15 +515,15 @@ void FlanSoundfontPlayer::create_ui()
                 wchar_t sz_file[260];
                 ZeroMemory(&ofn, sizeof(ofn));
                 ofn.lStructSize = sizeof(ofn);
-                ofn.hwndOwner = NULL;
+                ofn.hwndOwner = nullptr;
                 ofn.lpstrFile = sz_file;
                 ofn.lpstrFile[0] = '\0';
                 ofn.nMaxFile = sizeof(sz_file);
                 ofn.lpstrFilter = L"Soundfont\0*.sf2;*.dls\0";
                 ofn.nFilterIndex = 1;
-                ofn.lpstrFileTitle = NULL;
+                ofn.lpstrFileTitle = nullptr;
                 ofn.nMaxFileTitle = 0;
-                ofn.lpstrInitialDir = NULL;
+                ofn.lpstrInitialDir = nullptr;
                 ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
 
                 // Open the dialog
@@ -540,26 +540,8 @@ void FlanSoundfontPlayer::create_ui()
                         path[i] = sz_file[i];
                     }
 
-                    // Load soundfont
-                    m_soundfont.clear();
-                    m_soundfont.from_file(path);
-
-                    // Get text in the browse box
-                    wchar_t* text_soundfont_path = reinterpret_cast<wchar_t*>(scene.value_pool.values["text_soundfont_path"]);
-
-                    // Reallocate it for the new path length
-                    realloc(text_soundfont_path, path.size() + 1);
-
-                    // Copy the string to it
-                    for (size_t i = 0; i < path.size() + 1; ++i) {
-                        text_soundfont_path[i] = sz_file[i];
-                    }
-
-                    // Set the text in the browse box
-                    scene.value_pool.set_value("text_soundfont_path", reinterpret_cast<intptr_t>(text_soundfont_path));
-
-                    // Update the dropdown menu
-                    update_preset_dropdown_menu();
+                    // Load the soundfont
+                    load_soundfont(path);
                 }
             }, { L"...", {2, 2}, {0, 0, 0, 1}, Flan::AnchorPoint::center, Flan::AnchorPoint::center });
     }
@@ -727,4 +709,27 @@ void FlanSoundfontPlayer::update_preset_dropdown_menu()
         m_dropdown_indices_inverse.push_back(preset.first);
 
     }
+}
+
+void FlanSoundfontPlayer::load_soundfont(const std::string& path) {
+    // Load soundfont
+    m_soundfont.clear();
+    m_soundfont.from_file(path);
+
+    // Get text in the browse box
+    wchar_t* text_soundfont_path = reinterpret_cast<wchar_t*>(scene.value_pool.values["text_soundfont_path"]);
+
+    // Reallocate it for the new path length
+    realloc(text_soundfont_path, path.size() + 1);
+
+    // Copy the string to it
+    for (size_t i = 0; i < path.size() + 1; ++i) {
+        text_soundfont_path[i] = path[i];
+    }
+
+    // Set the text in the browse box
+    scene.value_pool.set_value("text_soundfont_path", reinterpret_cast<intptr_t>(text_soundfont_path));
+
+    // Update the dropdown menu
+    update_preset_dropdown_menu();
 }
