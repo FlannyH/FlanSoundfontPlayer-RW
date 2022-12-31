@@ -59,15 +59,18 @@ FlanSoundfontPlayer::FlanSoundfontPlayer(int set_tag, TFruityPlugHost* host) : T
 
     // Initialize renderer
     renderer.init(1280, 720, true, dll_handle);
+    input = new Flan::Input(renderer.window());
 
     // Attach our OpenGL window to the FL plugin, by getting the HWND from our GLFWwindow and passing it to the plugin struct
     EditorHandle = glfwGetWin32Window(renderer.window());
 
-    // Create a render thread that renders the UI elements
-    m_update_render_thread = std::thread(update_render, this);
+    host->Dispatcher(set_tag, FHD_WantIdle, 0, 1);
 
     // Create our UI elements
     create_ui();
+
+    // Create render thread
+    m_update_render_thread = std::thread(update_render, this);
 
     // If a soundfont is loaded
     if (!m_soundfont.presets.empty()) {
@@ -92,6 +95,8 @@ FlanSoundfontPlayer::~FlanSoundfontPlayer()
 {
     // Tell the rendering thread we're done
     not_destructing = false;
+
+    // Wait for the rendering thread to finish
     m_update_render_thread.join();
 
     // Close the input manager
@@ -114,34 +119,29 @@ intptr_t _stdcall FlanSoundfontPlayer::Dispatcher(intptr_t id, intptr_t index, i
     case FPD_ShowEditor:
         if (value == 0)	// hide (no parent window)
         {
+            // Make sure the renderer stops rendering when the window is hdden
             window_safe = false;
-            std::lock_guard guard(graphics_thread_lock);
-            glfwDestroyWindow(renderer.window());
-            DestroyWindow(EditorHandle);
-            EditorHandle = nullptr;
+
+            // Hide the window
+            glfwHideWindow(renderer.window());
+
+            // Remove the editor handle the parent
+            SetParent(EditorHandle, nullptr);
         }
-        else			// show
+        else // show
         {
-            //EditorHandle = CreateWindowEx(0, L"SawVCExampleWindow", L"SawVCExampleWindow", WS_CHILD | WS_VISIBLE, 0, 0, 300, 200, (HWND)Value, NULL, 0, NULL);
-            renderer.init(1280, 720, true, dll_handle);
-            EditorHandle = glfwGetWin32Window(renderer.window());
+            // Parent the editor handle to the window provided by FL
             SetParent(EditorHandle, reinterpret_cast<HWND>(value));
-            SetWindowLong(EditorHandle, GWL_STYLE, WS_CHILD | WS_VISIBLE);
-            SetWindowLongPtr(EditorHandle, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
-            ShowWindow(EditorHandle, SW_SHOW);
-            delete input;
-            input = new Flan::Input(renderer.window());
+
+            // Show the window
+            glfwShowWindow(renderer.window());
+
+            // Let the rendering thread know we're good to go
             window_safe = true;
-            intptr_t menu_index = 0;
-            std::vector<std::string> menu_entries;
-            while (true) {
-                const PParamMenuEntry pentry = reinterpret_cast<PParamMenuEntry>(PlugHost->Dispatcher(HostTag, FHD_GetParamMenuEntry, 0, menu_index++));
-                if (!pentry) break;
-                menu_entries.emplace_back(pentry->Name);
-            }
-            
-            PlugHost->Dispatcher(HostTag, FHD_ParamMenu, 0, 6);
         }
+
+        // Set the editor plugin handle to be this plugin
+        SetWindowLongPtr(EditorHandle, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
         break;
 
         // set the samplerate
@@ -150,6 +150,7 @@ intptr_t _stdcall FlanSoundfontPlayer::Dispatcher(intptr_t id, intptr_t index, i
         PitchMul = static_cast<float>(MiddleCMul / AudioRenderer.getSmpRate());
         break;
     default:
+        printf("a");
         break;
     }
 
@@ -346,6 +347,7 @@ void _stdcall FlanSoundfontPlayer::Gen_Render(PWAV32FS dest_buffer, int& length)
 
 void _stdcall FlanSoundfontPlayer::Idle()
 {
+    update_render(this);
 }
 
 void FlanSoundfontPlayer::create_ui()
