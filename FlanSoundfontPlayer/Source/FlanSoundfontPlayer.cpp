@@ -100,9 +100,10 @@ FlanSoundfontPlayer::FlanSoundfontPlayer(int set_tag, TFruityPlugHost* host) : T
     }
 
     // Init wave oscillators to off
-    for (auto& wave_osc : m_active_wave_oscs)
-    {
-        wave_osc->vol_env.stage = static_cast<float>(Flan::envStage::off);
+    for (const auto& voice : m_active_voices) {
+        for (const auto& wave_osc : voice->wave_oscs) {
+            wave_osc->vol_env.stage = static_cast<float>(Flan::envStage::off);
+        }
     }
 }
 
@@ -176,7 +177,12 @@ intptr_t _stdcall FlanSoundfontPlayer::Dispatcher(intptr_t id, intptr_t index, i
 
 TVoiceHandle _stdcall FlanSoundfontPlayer::TriggerVoice(PVoiceParams voice_params, intptr_t set_tag)
 {
-    Flan::WavetableOscillator* return_value = nullptr;
+    // Create new voice
+    Flan::Voice* new_voice = new Flan::Voice();
+    new_voice->voice_tag = set_tag;
+
+    // Add it to the active voices
+    m_active_voices.push_back(new_voice);
 
     // Debug
     swprintf_s(m_debug_buffer, L"InitLevels:\n\tPan:\t%f\n\tVol:\t%f\n\tPitch:\t%f\n\tFCut:\t%f\n\tFRes:\t%f\nFinalLevels:\n\tPan:\t%f\n\tVol:\t%f\n\tPitch:\t%f\n\tFCut:\t%f\n\tFRes:\t%f\n", 
@@ -215,15 +221,14 @@ TVoiceHandle _stdcall FlanSoundfontPlayer::TriggerVoice(PVoiceParams voice_param
             ) {
 
             // find a free wavetable oscillator spot in the array
-            auto* p_wave_osc = new Flan::WavetableOscillator();
+            auto p_wave_osc = new Flan::WavetableOscillator();
             auto& wave_osc = *p_wave_osc;
-            wave_osc.voice_tag = set_tag;
             {
                 // Lock the wavetables so we don't get any surprises from another thread
                 std::lock_guard guard{ m_note_playing_mutex };
-                m_active_wave_oscs.push_back(p_wave_osc);
+                new_voice->wave_oscs.push_back(p_wave_osc);
             }
-            return_value = p_wave_osc;
+
             //m_curr_wave_osc_idx = (m_curr_wave_osc_idx + 1) % N_WAVE_OSCS;
             {
                 // init sample and preset pointers
@@ -294,14 +299,14 @@ TVoiceHandle _stdcall FlanSoundfontPlayer::TriggerVoice(PVoiceParams voice_param
         }
     }
     // Start note
-    return reinterpret_cast<TVoiceHandle>(return_value);
+    return reinterpret_cast<TVoiceHandle>(new_voice);
 }
 
 void _stdcall FlanSoundfontPlayer::Voice_Release(TVoiceHandle handle)
 {
     if (!handle) return;
-    Flan::WavetableOscillator* wave_osc = reinterpret_cast<Flan::WavetableOscillator*>(handle);
-    wave_osc->vol_env.stage = Flan::envStage::release;
+    Flan::Voice* voice = reinterpret_cast<Flan::Voice*>(handle);
+    voice->release();
 }
 
 // MIDI values here used for pitch wheel
@@ -341,8 +346,8 @@ void _stdcall FlanSoundfontPlayer::Gen_Render(PWAV32FS dest_buffer, int& length)
     for (int j = 0; j < length; j++) {
         sample_t total_l = 0;
         sample_t total_r = 0;
-        for (auto* wave_osc : m_active_wave_oscs) {
-            const Flan::BufferSample sample = wave_osc->get_sample(m_sample_rate_inv, m_midi_pitch, static_cast<int>(scene.value_pool.get<double>("sampling_mode")));
+        for (auto* voice : m_active_voices) {
+            const Flan::BufferSample sample = voice->get_sample(m_sample_rate_inv, m_midi_pitch, static_cast<int>(scene.value_pool.get<double>("sampling_mode")));
             total_l += sample.left;
             total_r += sample.right;
         }
@@ -351,10 +356,10 @@ void _stdcall FlanSoundfontPlayer::Gen_Render(PWAV32FS dest_buffer, int& length)
     }
 
     // Kill dead voices - only one per render though
-    for (size_t i = 0; i < m_active_wave_oscs.size(); i++) {
-        if (m_active_wave_oscs[i]->schedule_kill) {
-            PlugHost->Voice_Kill(m_active_wave_oscs[i]->voice_tag, true);
-            m_active_wave_oscs.erase(m_active_wave_oscs.begin() + i);
+    for (size_t i = 0; i < m_active_voices.size(); i++) {
+        if (m_active_voices[i]->schedule_kill) {
+            PlugHost->Voice_Kill(m_active_voices[i]->voice_tag, true);
+            m_active_voices.erase(m_active_voices.begin() + i);
             break;
         }
     }
@@ -533,8 +538,10 @@ void FlanSoundfontPlayer::create_ui()
                 // Open the dialog
                 if (GetOpenFileName(&ofn) == TRUE) {
                     // Stop all audio
-                    for (auto* voice : m_active_wave_oscs) {
-                        voice->vol_env.stage = Flan::envStage::off;
+                    for (const auto* voice : m_active_voices) {
+                        for (auto* wave_osc : voice->wave_oscs) {
+                            wave_osc->vol_env.stage = Flan::envStage::off;
+                        }
                     }
 
                     // Convert path to a string

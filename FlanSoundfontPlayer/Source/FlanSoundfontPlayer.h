@@ -45,7 +45,7 @@ private:
 
     // Voices
     [[deprecated]] Flan::WavetableOscillator m_wave_oscs[N_WAVE_OSCS]{};
-    std::vector<Flan::WavetableOscillator*> m_active_wave_oscs;
+    std::vector<Flan::Voice*> m_active_voices;
     [[deprecated]] size_t m_curr_wave_osc_idx = 0;
     std::mutex m_note_playing_mutex;
     float m_midi_pitch = 0.0f;

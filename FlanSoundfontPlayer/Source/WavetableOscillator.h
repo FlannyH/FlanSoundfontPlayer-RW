@@ -30,9 +30,34 @@ namespace Flan {
         u8 midi_key = 255;              // The current midi key that's playing
         bool schedule_kill = false;
         PVoiceParams voice_params = nullptr;
-        intptr_t voice_tag = 0;
 
         BufferSample get_sample(float time_per_sample, float pitch_wheel, const int filter_mode = true);
         [[nodiscard]] float sample_from_index(int index, bool is_linked_sample) const;
+    };
+
+    struct Voice {
+        std::vector<WavetableOscillator*> wave_oscs;
+        intptr_t voice_tag = 0;
+        bool schedule_kill = false;
+
+        [[nodiscard]] BufferSample get_sample(const float time_per_sample, const float pitch_wheel, const int filter_mode = true) {
+            BufferSample sample = { 0, 0 };
+            schedule_kill = true;
+            for (const auto osc : wave_oscs) {
+                const BufferSample new_sample = osc->get_sample(time_per_sample, pitch_wheel, filter_mode);
+                sample.left += new_sample.left;
+                sample.right += new_sample.right;
+                if (osc->schedule_kill == false) {
+                    schedule_kill = false;
+                }
+            }
+            return sample;
+        }
+
+        void release() const {
+            for (const auto osc : wave_oscs) {
+                osc->vol_env.stage = Flan::envStage::release;
+            }
+        }
     };
 }

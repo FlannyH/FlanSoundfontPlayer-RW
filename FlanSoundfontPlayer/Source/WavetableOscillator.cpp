@@ -39,7 +39,7 @@ namespace Flan {
         const u32 loop_end = sample.loop_end + preset_zone.sample_loop_end_offset;
 
         // Loop around sample loop points, to avoid floating point precision errors with high sample position values (yes, this has happened before lmao)
-        if (sample_position > static_cast<float>(loop_end)) {
+        if (preset_zone.loop_enable && sample_position > static_cast<float>(loop_end)) {
             sample_position -= static_cast<float>(loop_end - loop_start);
         }
 
