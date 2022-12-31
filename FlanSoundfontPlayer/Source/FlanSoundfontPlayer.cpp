@@ -31,8 +31,20 @@ HMODULE dll_handle;
 // ReSharper disable once CppInconsistentNaming
 // ReSharper disable twice CppParameterMayBeConst
 BOOL APIENTRY DllMain(HMODULE module, DWORD reason, LPVOID reserved) {
-    if (reason == DLL_PROCESS_ATTACH) 
+    // This if statement only runs code when the plugin is loaded for the first time. This is perfect to initialized shared resources like look-up tables
+    if (reason == DLL_PROCESS_ATTACH) {
+        // Store the dll handle, to be able to load resources from the dll file
         dll_handle = module;
+
+        // Generate gauss table, credit to https://problemkaputt.de/fullsnes.htm#snesaudioprocessingunitapu for providing the gauss table that is approximated below
+        // Formula was made through trial and error in geogebra
+        for (int ix = 0; ix < 512; ix++) {
+            const float x_270 = static_cast<float>(ix) / 270.f;
+            const float x_512 = static_cast<float>(ix) / 512.f;
+            const float result = powf(2.718281828f, -x_270 * x_270) * 1305.f * powf((1 - (x_512 * x_512)), 1.4f);
+            Flan::bell_curve[ix] = result / 2039.f; // magic number to make the volume similar to the other filtering modes
+        }
+    }
     return TRUE;
 }
 
