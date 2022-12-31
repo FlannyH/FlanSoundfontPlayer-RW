@@ -2,7 +2,6 @@
 #include <windows.h>
 #include <ios>
 #include <cstdio>
-#include "../Logging.h"
 
 // Plugin info struct that FL Studio wants
 TFruityPlugInfo plug_info = {
@@ -511,7 +510,57 @@ void FlanSoundfontPlayer::create_ui()
         };
         Flan::create_button(scene, button_soundfont_transform, [&]()
             {
-                printf("hi!\n");
+                // Describe file open dialog
+                OPENFILENAME ofn;
+                wchar_t sz_file[260];
+                ZeroMemory(&ofn, sizeof(ofn));
+                ofn.lStructSize = sizeof(ofn);
+                ofn.hwndOwner = NULL;
+                ofn.lpstrFile = sz_file;
+                ofn.lpstrFile[0] = '\0';
+                ofn.nMaxFile = sizeof(sz_file);
+                ofn.lpstrFilter = L"Soundfont\0*.sf2;*.dls\0";
+                ofn.nFilterIndex = 1;
+                ofn.lpstrFileTitle = NULL;
+                ofn.nMaxFileTitle = 0;
+                ofn.lpstrInitialDir = NULL;
+                ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
+
+                // Open the dialog
+                if (GetOpenFileName(&ofn) == TRUE) {
+                    // Stop all audio
+                    for (auto* voice : m_active_wave_oscs) {
+                        voice->vol_env.stage = Flan::envStage::off;
+                    }
+
+                    // Convert path to a string
+                    std::string path;
+                    path.resize(wcslen(sz_file));
+                    for (size_t i = 0; i < path.size(); ++i) {
+                        path[i] = sz_file[i];
+                    }
+
+                    // Load soundfont
+                    m_soundfont.clear();
+                    m_soundfont.from_file(path);
+
+                    // Get text in the browse box
+                    wchar_t* text_soundfont_path = reinterpret_cast<wchar_t*>(scene.value_pool.values["text_soundfont_path"]);
+
+                    // Reallocate it for the new path length
+                    realloc(text_soundfont_path, path.size() + 1);
+
+                    // Copy the string to it
+                    for (size_t i = 0; i < path.size() + 1; ++i) {
+                        text_soundfont_path[i] = sz_file[i];
+                    }
+
+                    // Set the text in the browse box
+                    scene.value_pool.set_value("text_soundfont_path", reinterpret_cast<intptr_t>(text_soundfont_path));
+
+                    // Update the dropdown menu
+                    update_preset_dropdown_menu();
+                }
             }, { L"...", {2, 2}, {0, 0, 0, 1}, Flan::AnchorPoint::center, Flan::AnchorPoint::center });
     }
     // Create sliders for ADSR
