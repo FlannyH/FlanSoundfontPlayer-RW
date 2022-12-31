@@ -30,12 +30,13 @@ public:
     bool window_safe = false;
     bool not_destructing = true;
     std::mutex graphics_thread_lock;
+    std::string soundfont_to_load;
+    void load_soundfont(const std::string& path);
 
 private:
     // UI
     void create_ui();
     void update_preset_dropdown_menu();
-    void load_soundfont(const std::string& path);
     std::thread m_update_render_thread;
     Flan::Combobox* m_preset_dropdown = nullptr;
 

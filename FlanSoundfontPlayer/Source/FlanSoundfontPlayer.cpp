@@ -61,6 +61,10 @@ void update_render(FlanSoundfontPlayer* plugin) {
             plugin->renderer.end_frame();
             plugin->input->update(plugin->renderer.window());
         }
+        if (!plugin->soundfont_to_load.empty()) {
+            plugin->load_soundfont(plugin->soundfont_to_load);
+            plugin->soundfont_to_load.clear();
+        }
     }
 }
 
@@ -537,11 +541,11 @@ void FlanSoundfontPlayer::create_ui()
                     std::string path;
                     path.resize(wcslen(sz_file));
                     for (size_t i = 0; i < path.size(); ++i) {
-                        path[i] = sz_file[i];
+                        path[i] = static_cast<char>(sz_file[i]);
                     }
 
                     // Load the soundfont
-                    load_soundfont(path);
+                    soundfont_to_load = path;
                 }
             }, { L"...", {2, 2}, {0, 0, 0, 1}, Flan::AnchorPoint::center, Flan::AnchorPoint::center });
     }
@@ -720,7 +724,7 @@ void FlanSoundfontPlayer::load_soundfont(const std::string& path) {
     wchar_t* text_soundfont_path = reinterpret_cast<wchar_t*>(scene.value_pool.values["text_soundfont_path"]);
 
     // Reallocate it for the new path length
-    realloc(text_soundfont_path, path.size() + 1);
+    text_soundfont_path = static_cast<wchar_t*>(realloc(text_soundfont_path, (path.size() + 1) * 2));
 
     // Copy the string to it
     for (size_t i = 0; i < path.size() + 1; ++i) {
