@@ -47,6 +47,8 @@ private:
     [[deprecated]] size_t m_curr_wave_osc_idx = 0;
     std::mutex m_note_playing_mutex;
     float m_midi_pitch = 0.0f;
+    float m_sample_rate = 1.0f;
+    float m_sample_rate_inv = 1.0f;
 
     // Optimizations
     std::vector<u16> m_dropdown_indices_inverse;

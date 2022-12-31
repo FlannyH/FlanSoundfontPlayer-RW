@@ -148,6 +148,8 @@ intptr_t _stdcall FlanSoundfontPlayer::Dispatcher(intptr_t id, intptr_t index, i
     case FPD_SetSampleRate:
         AudioRenderer.setSmpRate(static_cast<int>(value));
         PitchMul = static_cast<float>(MiddleCMul / AudioRenderer.getSmpRate());
+        m_sample_rate = static_cast<float>(value);
+        m_sample_rate_inv = 1.0f / m_sample_rate;
         break;
     default:
         printf("a");
@@ -268,7 +270,7 @@ TVoiceHandle _stdcall FlanSoundfontPlayer::TriggerVoice(PVoiceParams voice_param
                     curr_scale[static_cast<size_t>(scaled_key)],
                     curr_scale[static_cast<size_t>(scaled_key) + 1],
                     fmodf(scaled_key, 1.0f));*/ // todo: make this work with scales
-                wave_osc.sample_delta = (wave_osc.sample.base_sample_rate * key_multiplier * (powf(2.0f, pitch_correction / 12.0f))) / 44100.f;
+                wave_osc.sample_delta = (wave_osc.sample.base_sample_rate * key_multiplier * (powf(2.0f, pitch_correction / 12.0f))) * m_sample_rate_inv;
                 wave_osc.preset_zone.vol_env.hold *= powf(2.f, wave_osc.preset_zone.key_to_vol_env_hold * static_cast<float>(key - 60) / (1200));
                 wave_osc.preset_zone.vol_env.decay *= powf(2.f, wave_osc.preset_zone.key_to_vol_env_decay * static_cast<float>(key - 60) / (1200));
                 wave_osc.preset_zone.mod_env.hold *= powf(2.f, wave_osc.preset_zone.key_to_mod_env_hold * static_cast<float>(key - 60) / (1200));
@@ -325,9 +327,7 @@ void _stdcall FlanSoundfontPlayer::Gen_Render(PWAV32FS dest_buffer, int& length)
         sample_t total_l = 0;
         sample_t total_r = 0;
         for (auto* wave_osc : m_active_wave_oscs) {
-            // todo: un-hardcode the sample rate
-            // todo: implement pitch wheel and note slides
-            const Flan::BufferSample sample = wave_osc->get_sample(1.0f / 44100.0f, m_midi_pitch, static_cast<int>(scene.value_pool.get<double>("sampling_mode")));
+            const Flan::BufferSample sample = wave_osc->get_sample(m_sample_rate_inv, m_midi_pitch, static_cast<int>(scene.value_pool.get<double>("sampling_mode")));
             total_l += sample.left;
             total_r += sample.right;
         }
