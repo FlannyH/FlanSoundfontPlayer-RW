@@ -59,13 +59,13 @@
     <ClInclude Include="Source\FlanSoundfontPlayer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Logging.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Source\WavetableOscillator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Source\ValueSystem.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Scale.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

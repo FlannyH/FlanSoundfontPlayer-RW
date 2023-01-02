@@ -4,6 +4,7 @@
 #include <iostream>
 #include <mutex>
 
+#include "Scale.h"
 #include "FruityPlug/fp_cplug.h"
 #include "../../FlanGUI/Renderer.h"
 #include "../../FlanGUI/ComponentSystem.h"
@@ -28,6 +29,7 @@ public:
     Flan::Renderer renderer;
     Flan::Scene scene;
     Flan::Input* input = nullptr;
+    Flan::Scale scale;
     bool window_safe = false;
     bool not_destructing = true;
     std::mutex graphics_thread_lock;
@@ -49,9 +51,9 @@ private:
     std::vector<Flan::Voice*> m_active_voices;
     [[deprecated]] size_t m_curr_wave_osc_idx = 0;
     std::mutex m_note_playing_mutex;
-    float m_midi_pitch = 0.0f;
-    float m_sample_rate = 1.0f;
-    float m_sample_rate_inv = 1.0f;
+    double m_midi_pitch = 0.0f;
+    double m_sample_rate = 1.0f;
+    double m_sample_rate_inv = 1.0f;
 
     // Optimizations
     std::vector<u16> m_dropdown_indices_inverse;

@@ -54,8 +54,6 @@ void update_render(FlanSoundfontPlayer* plugin) {
         {
             std::lock_guard guard(plugin->graphics_thread_lock);
             plugin->renderer.begin_frame();
-            // todo: load a font first
-            // todo: move lut init somewhere else
             Flan::update_entities(plugin->scene, plugin->renderer, *plugin->input, 1.0f / 165.0f);
             //plugin->renderer.draw_text({ {0,0} , {1280, 720} }, L"Hello World!", { 16, 16 }, { 4, 4 }, { 1, 1, 1, 1 }, 0.0f);
             plugin->renderer.end_frame();
@@ -93,16 +91,14 @@ FlanSoundfontPlayer::FlanSoundfontPlayer(int set_tag, TFruityPlugHost* host) : T
     }
     // Otherwise, try to load gm.dls, I mean which Windows PC doesn't have this file, I remember having it on my Windows XP machine
     else {
-        m_soundfont.clear();
-        m_soundfont.from_file("C:/Windows/System32/drivers/gm.dls");
-        //strcpy_s(sf2_path, "C:/Windows/System32/drivers/gm.dls");
+        soundfont_to_load = "C:/Windows/System32/drivers/gm.dls";
         update_preset_dropdown_menu();
     }
 
     // Init wave oscillators to off
     for (const auto& voice : m_active_voices) {
         for (const auto& wave_osc : voice->wave_oscs) {
-            wave_osc->vol_env.stage = static_cast<float>(Flan::envStage::off);
+            wave_osc->vol_env.stage = static_cast<double>(Flan::EnvStage::off);
         }
     }
 }
@@ -164,8 +160,8 @@ intptr_t _stdcall FlanSoundfontPlayer::Dispatcher(intptr_t id, intptr_t index, i
     case FPD_SetSampleRate:
         AudioRenderer.setSmpRate(static_cast<int>(value));
         PitchMul = static_cast<float>(MiddleCMul / AudioRenderer.getSmpRate());
-        m_sample_rate = static_cast<float>(value);
-        m_sample_rate_inv = 1.0f / m_sample_rate;
+        m_sample_rate = static_cast<double>(value);
+        m_sample_rate_inv = 1.0 / m_sample_rate;
         break;
     default:
         printf("a");
@@ -212,9 +208,9 @@ TVoiceHandle _stdcall FlanSoundfontPlayer::TriggerVoice(PVoiceParams voice_param
     const Flan::Preset& preset = m_soundfont.presets[m_dropdown_indices_inverse[m_preset_dropdown->current_selected_index]];
 
     // Get midi information
-    const float corrected_key = 60 + (voice_params->FinalLevels.Pitch / 100);
-    int key = static_cast<int>(60 + (voice_params->FinalLevels.Pitch / 100));
     int vel = static_cast<int>(voice_params->InitLevels.Vol * 63.0f);
+    int key = static_cast<int>(60 + (voice_params->FinalLevels.Pitch / 100));
+    const float corrected_key = log2f(scale[key]) * 12 + 60;
 
     // Loop over all preset zones to figure out for which ones the key and the velocity are inside the range
     for (auto& zone : preset.zones) {
@@ -242,38 +238,38 @@ TVoiceHandle _stdcall FlanSoundfontPlayer::TriggerVoice(PVoiceParams voice_param
 
                 // apply overrides
                 if (scene.value_pool.get<double>("delay") != 0.0) {
-                    wave_osc.preset_zone.vol_env.delay = 1.0f / static_cast<float>(scene.value_pool.get<double>("delay"));
+                    wave_osc.preset_zone.vol_env.delay = 1.0 / scene.value_pool.get<double>("delay");
                 }
                 if (scene.value_pool.get<double>("attack") != 0.0) {
-                    wave_osc.preset_zone.vol_env.attack = 1.0f / static_cast<float>(scene.value_pool.get<double>("attack"));
+                    wave_osc.preset_zone.vol_env.attack = 1.0 / scene.value_pool.get<double>("attack");
                 }
                 if (scene.value_pool.get<double>("hold") != 0.0) {
-                    wave_osc.preset_zone.vol_env.hold = 1.0f / static_cast<float>(scene.value_pool.get<double>("hold"));
+                    wave_osc.preset_zone.vol_env.hold = 1.0 / scene.value_pool.get<double>("hold");
                 }
                 if (scene.value_pool.get<double>("decay") != 0.0) {
-                    wave_osc.preset_zone.vol_env.decay = 100.0f / static_cast<float>(scene.value_pool.get<double>("decay"));
+                    wave_osc.preset_zone.vol_env.decay = 100.0 / scene.value_pool.get<double>("decay");
                 }
                 if (scene.value_pool.get<double>("sustain") != 0.0) {
-                    wave_osc.preset_zone.vol_env.sustain = static_cast<float>(scene.value_pool.get<double>("sustain"));
+                    wave_osc.preset_zone.vol_env.sustain = scene.value_pool.get<double>("sustain");
                 }
                 if (scene.value_pool.get<double>("release") != 0.0) {
-                    wave_osc.preset_zone.vol_env.release = 100.0f / static_cast<float>(scene.value_pool.get<double>("release"));
+                    wave_osc.preset_zone.vol_env.release = 100.0 / scene.value_pool.get<double>("release");
                 }
 
                 // init sample position and adsr_volume to 0.0
-                wave_osc.sample_position = 0.0f;
-                wave_osc.vol_env.value = 0.0f;
-                wave_osc.mod_env.value = 0.0f;
+                wave_osc.sample_position = 0.0;
+                wave_osc.vol_env.value = 0.0;
+                wave_osc.mod_env.value = 0.0;
 
                 // init adsr_stage to Delay
-                wave_osc.vol_env.stage = static_cast<float>(Flan::envStage::delay);
-                wave_osc.mod_env.stage = static_cast<float>(Flan::envStage::delay);
+                wave_osc.vol_env.stage = static_cast<double>(Flan::EnvStage::delay);
+                wave_osc.mod_env.stage = static_cast<double>(Flan::EnvStage::delay);
 
                 // init lfo
-                wave_osc.vib_lfo.time = 0.0f;
-                wave_osc.vib_lfo.state = 0.0f;
-                wave_osc.mod_lfo.time = 0.0f;
-                wave_osc.mod_lfo.state = 0.0f;
+                wave_osc.vib_lfo.time = 0.0;
+                wave_osc.vib_lfo.state = 0.0;
+                wave_osc.mod_lfo.time = 0.0;
+                wave_osc.mod_lfo.state = 0.0;
 
                 // init filter
                 wave_osc.filter = zone.filter;
@@ -282,24 +278,24 @@ TVoiceHandle _stdcall FlanSoundfontPlayer::TriggerVoice(PVoiceParams voice_param
                 wave_osc.midi_key = static_cast<u8>(key);
                 if (zone.vel_override < 128)
                     vel = zone.vel_override;
-                wave_osc.initial_channel_pitch = voice_params->FinalLevels.Pitch;
+                wave_osc.initial_channel_pitch = static_cast<double>(voice_params->FinalLevels.Pitch);
                 wave_osc.voice_params = voice_params;
-                wave_osc.channel_pitch = 0.0f;
+                wave_osc.channel_pitch = 0.0;
 
                 // init sample_delta
-                const float pitch_correction = (wave_osc.channel_pitch / 100.0f) + static_cast<float>(zone.root_key_offset) + static_cast<float>(zone.tuning);
+                const double pitch_correction = (wave_osc.channel_pitch / 100.0) + static_cast<double>(zone.root_key_offset) + static_cast<double>(zone.tuning);
                 if (zone.key_override < 128)
                     key = zone.key_override;
-                const float scaled_key = ((static_cast<float>(key - 60) * zone.scale_tuning));
-                const float key_multiplier = powf(2.0f, (scaled_key) / 12.f); /*Flan::lerp(
-                    curr_scale[static_cast<size_t>(scaled_key)],
-                    curr_scale[static_cast<size_t>(scaled_key) + 1],
-                    fmodf(scaled_key, 1.0f));*/ // todo: make this work with scales
-                wave_osc.sample_delta = (wave_osc.sample.base_sample_rate * key_multiplier * (powf(2.0f, pitch_correction / 12.0f))) * m_sample_rate_inv;
-                wave_osc.preset_zone.vol_env.hold *= powf(2.f, wave_osc.preset_zone.key_to_vol_env_hold * static_cast<float>(key - 60) / (1200));
-                wave_osc.preset_zone.vol_env.decay *= powf(2.f, wave_osc.preset_zone.key_to_vol_env_decay * static_cast<float>(key - 60) / (1200));
-                wave_osc.preset_zone.mod_env.hold *= powf(2.f, wave_osc.preset_zone.key_to_mod_env_hold * static_cast<float>(key - 60) / (1200));
-                wave_osc.preset_zone.mod_env.decay *= powf(2.f, wave_osc.preset_zone.key_to_mod_env_decay * static_cast<float>(key - 60) / (1200));
+                const float scaled_key = 60 + static_cast<float>(key - 60) * zone.scale_tuning;
+                const double key_multiplier = Flan::lerp(
+                    scale[static_cast<size_t>(scaled_key)],
+                    scale[static_cast<size_t>(scaled_key) + 1],
+                    fmodf(scaled_key, 1.0f));
+                wave_osc.sample_delta = (static_cast<double>(wave_osc.sample.base_sample_rate) * key_multiplier * (pow(2.0, pitch_correction / 12.0))) * m_sample_rate_inv;
+                wave_osc.preset_zone.vol_env.hold *= static_cast<double>(powf(2.f, wave_osc.preset_zone.key_to_vol_env_hold * static_cast<float>(key - 60) / (1200)));
+                wave_osc.preset_zone.vol_env.decay *= static_cast<double>(powf(2.f, wave_osc.preset_zone.key_to_vol_env_decay * static_cast<float>(key - 60) / (1200)));
+                wave_osc.preset_zone.mod_env.hold *= static_cast<double>(powf(2.f, wave_osc.preset_zone.key_to_mod_env_hold * static_cast<float>(key - 60) / (1200)));
+                wave_osc.preset_zone.mod_env.decay *= static_cast<double>(powf(2.f, wave_osc.preset_zone.key_to_mod_env_decay * static_cast<float>(key - 60) / (1200)));
             }
         }
     }
@@ -310,7 +306,7 @@ TVoiceHandle _stdcall FlanSoundfontPlayer::TriggerVoice(PVoiceParams voice_param
 void _stdcall FlanSoundfontPlayer::Voice_Release(TVoiceHandle handle)
 {
     if (!handle) return;
-    Flan::Voice* voice = reinterpret_cast<Flan::Voice*>(handle);
+    const Flan::Voice* voice = reinterpret_cast<Flan::Voice*>(handle);
     voice->release();
 }
 
@@ -332,7 +328,7 @@ int _stdcall FlanSoundfontPlayer::ProcessEvent(int event_id, int event_value, in
         break;
     case FPE_MIDI_Pitch:
         swprintf_s(m_debug_buffer, L"MIDI Pitch changed to %i", event_value);
-        m_midi_pitch = static_cast<float>(event_value) / 100.f;
+        m_midi_pitch = static_cast<double>(event_value) / 100.0;
         break;
     default:
         return 0;
@@ -361,7 +357,7 @@ void _stdcall FlanSoundfontPlayer::Gen_Render(PWAV32FS dest_buffer, int& length)
     }
 
     // Kill dead voices - only one per render though
-    for (size_t i = 0; i < m_active_voices.size(); i++) {
+    for (int i = 0; i < m_active_voices.size(); i++) {
         if (m_active_voices[i]->schedule_kill) {
             PlugHost->Voice_Kill(m_active_voices[i]->voice_tag, true);
             m_active_voices.erase(m_active_voices.begin() + i);
@@ -375,6 +371,7 @@ void FlanSoundfontPlayer::SaveRestoreState(IStream* stream, BOOL save) {
     // If `save` is true, we push, otherwise we pull
     struct {
         wchar_t soundfont_path[260];
+        wchar_t scale_name[260];
         u16 bank_program;
         double volenv_delay;
         double volenv_attack;
@@ -383,6 +380,7 @@ void FlanSoundfontPlayer::SaveRestoreState(IStream* stream, BOOL save) {
         double volenv_sustain;
         double volenv_release;
         u8 sampling_mode;
+        Flan::Scale scale;
         // todo: add scale to this struct
     } state{};
 
@@ -391,6 +389,9 @@ void FlanSoundfontPlayer::SaveRestoreState(IStream* stream, BOOL save) {
         // Populate struct with values
         // Copy soundfont path
         wcscpy_s(state.soundfont_path, _countof(state.soundfont_path), scene.value_pool.get<wchar_t*>("text_soundfont_path"));
+
+        // Copy scale name
+        wcscpy_s(state.scale_name, _countof(state.scale_name), scene.value_pool.get<wchar_t*>("text_scale"));
 
         // Copy currently selected bank/program
         state.bank_program  = static_cast<uint16_t>(scene.value_pool.get<double>("bank")) << 8;
@@ -407,7 +408,8 @@ void FlanSoundfontPlayer::SaveRestoreState(IStream* stream, BOOL save) {
         // Copy sampling mode
         state.sampling_mode = static_cast<uint8_t>(scene.value_pool.get<double>("sampling_mode"));
 
-        // todo: add scale to this
+        // Copy scale
+        state.scale = scale;
 
         // Write data
         ULONG n_bytes_saved;
@@ -427,6 +429,12 @@ void FlanSoundfontPlayer::SaveRestoreState(IStream* stream, BOOL save) {
         wcscpy_s(soundfont_path, _countof(state.soundfont_path), state.soundfont_path);
         scene.value_pool.set_ptr("text_soundfont_path", soundfont_path);
 
+        // Copy scale name and delete whatever was there before
+        free(scene.value_pool.get<wchar_t*>("text_scale"));
+        wchar_t* scale_name = new wchar_t[260];
+        wcscpy_s(scale_name, _countof(state.scale_name), state.scale_name);
+        scene.value_pool.set_ptr("text_scale", scale_name);
+
         // Load the soundfont
         std::string soundfont_path_8;
         const size_t length = wcslen(soundfont_path);
@@ -434,7 +442,7 @@ void FlanSoundfontPlayer::SaveRestoreState(IStream* stream, BOOL save) {
         for (size_t i = 0; i < length; ++i) {
             soundfont_path_8[i] = static_cast<char>(soundfont_path[i]);
         }
-        load_soundfont(soundfont_path_8);
+        soundfont_to_load = soundfont_path_8;
 
         // Copy currently selected bank/program
         scene.value_pool.set_value<double>("bank", state.bank_program >> 8);
@@ -451,7 +459,8 @@ void FlanSoundfontPlayer::SaveRestoreState(IStream* stream, BOOL save) {
         // Copy sampling mode
         scene.value_pool.set_value<double>("sampling_mode", state.sampling_mode);
 
-        // todo: add scale to this
+        // Copy scale
+        scale = state.scale;
     }
 }
 
@@ -617,7 +626,7 @@ void FlanSoundfontPlayer::create_ui()
                 ofn.lpstrFile = sz_file;
                 ofn.lpstrFile[0] = '\0';
                 ofn.nMaxFile = sizeof(sz_file);
-                ofn.lpstrFilter = L"Soundfont\0*.sf2;*.dls\0";
+                ofn.lpstrFilter = L"Soundfont (*.sf2, *.dls)\0*.sf2;*.dls\0";
                 ofn.nFilterIndex = 1;
                 ofn.lpstrFileTitle = nullptr;
                 ofn.nMaxFileTitle = 0;
@@ -629,7 +638,7 @@ void FlanSoundfontPlayer::create_ui()
                     // Stop all audio
                     for (const auto* voice : m_active_voices) {
                         for (auto* wave_osc : voice->wave_oscs) {
-                            wave_osc->vol_env.stage = Flan::envStage::off;
+                            wave_osc->vol_env.stage = Flan::EnvStage::off;
                         }
                     }
 
@@ -700,7 +709,7 @@ void FlanSoundfontPlayer::create_ui()
             0.5f,
             Flan::AnchorPoint::top_left
         };
-        Flan::create_text(scene, "text_scale_path", text_scale_transform, {
+        Flan::create_text(scene, "text_scale", text_scale_transform, {
             L"12-TET",
             {2, 2},
             {1, 1, 1, 1},
@@ -718,7 +727,47 @@ void FlanSoundfontPlayer::create_ui()
         };
         Flan::create_button(scene, button_scale_transform, [&]()
             {
-                printf("hi2!\n");
+                // Describe file open dialog
+                OPENFILENAME ofn;
+                wchar_t sz_file[260];
+                ZeroMemory(&ofn, sizeof(ofn));
+                ofn.lStructSize = sizeof(ofn);
+                ofn.hwndOwner = nullptr;
+                ofn.lpstrFile = sz_file;
+                ofn.lpstrFile[0] = '\0';
+                ofn.nMaxFile = sizeof(sz_file);
+                ofn.lpstrFilter = L"Scale (*.scl)\0*.scl\0";
+                ofn.nFilterIndex = 1;
+                ofn.lpstrFileTitle = nullptr;
+                ofn.nMaxFileTitle = 0;
+                ofn.lpstrInitialDir = nullptr;
+                ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
+
+                // Open the dialog
+                if (GetOpenFileName(&ofn) == TRUE) {
+                    // Stop all audio
+                    for (const auto* voice : m_active_voices) {
+                        for (auto* wave_osc : voice->wave_oscs) {
+                            wave_osc->vol_env.stage = Flan::EnvStage::off;
+                        }
+                    }
+
+                    // Convert path to a string
+                    std::string path;
+                    path.resize(wcslen(sz_file));
+                    for (size_t i = 0; i < path.size(); ++i) {
+                        path[i] = static_cast<char>(sz_file[i]);
+                    }
+
+                    // Load the soundfont
+                    scale.from_file(path);
+
+                    // Change the text in the scale text box to be the same as the scale title
+                    free(scene.value_pool.get<wchar_t*>("text_scale"));
+                    wchar_t* new_name = new wchar_t[260];
+                    memcpy_s(new_name, sizeof(wchar_t) * 260, sz_file, sizeof(sz_file));
+                    scene.value_pool.set_ptr("text_scale", new_name);
+                }
             }, { L"...", {2, 2}, {0, 0, 0, 1}, Flan::AnchorPoint::center, Flan::AnchorPoint::center });
     }
     // Create radio button for sampling mode
@@ -746,7 +795,7 @@ void FlanSoundfontPlayer::create_ui()
             L"Point sampling (1-point)",
             L"Linear sampling (2-point)",
             L"Gaussian sampling (4-point)",
-            }, 0);
+            }, 2);
     }
     // Debug text
     {

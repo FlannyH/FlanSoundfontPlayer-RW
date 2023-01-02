@@ -203,7 +203,7 @@ int main()
             0.5f,
             Flan::AnchorPoint::top_left
         };
-        Flan::create_text(scene, "text_scale_path", text_scale_transform, {
+        Flan::create_text(scene, "text_scale", text_scale_transform, {
             L"12-TET",
             {2, 2},
             {1, 1, 1, 1},

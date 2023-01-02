@@ -2,9 +2,9 @@
 #include <algorithm>
 
 namespace Flan {
-    BufferSample WavetableOscillator::get_sample(const float time_per_sample, const float pitch_wheel, const int filter_mode) {
+    BufferSample WavetableOscillator::get_sample(const double time_per_sample, const double pitch_wheel, const int filter_mode) {
         // Immediately skip inactive stage
-        if (static_cast<envStage>(vol_env.stage) == off) {
+        if (static_cast<EnvStage>(vol_env.stage) == off) {
             if (midi_key != 255) {
                 schedule_kill = true;
             }
@@ -12,9 +12,9 @@ namespace Flan {
         }
 
         // Update note parameters
-        channel_volume = voice_params->FinalLevels.Vol;
-        channel_panning = voice_params->FinalLevels.Pan;
-        channel_pitch = voice_params->FinalLevels.Pitch - initial_channel_pitch;
+        channel_volume = static_cast<double>(voice_params->FinalLevels.Vol);
+        channel_panning = static_cast<double>(voice_params->FinalLevels.Pan);
+        channel_pitch = static_cast<double>(voice_params->FinalLevels.Pitch) - initial_channel_pitch;
 
         // Update envelopes
         vol_env.update(preset_zone.vol_env, time_per_sample, true);
@@ -25,12 +25,12 @@ namespace Flan {
         mod_lfo.update(preset_zone.mod_lfo, time_per_sample);
 
         // Handle sample progression
-        const float pitch_wheel_contrib = (pitch_wheel / 12.0f);
-        const float channel_pitch_contrib = (channel_pitch / 1200.0f);
-        const float mod_env_contrib = (((100.0f + mod_env.value) * preset_zone.mod_env_to_pitch) / (1200.f * 100.f));
-        const float mod_lfo_contrib = ((mod_lfo.state * preset_zone.mod_lfo_to_pitch) / (1200.f));
-        const float vib_lfo_contrib = ((vib_lfo.state * preset_zone.vib_lfo_to_pitch) / (1200.f));
-        sample_position += sample_delta * powf(2.0f, pitch_wheel_contrib + channel_pitch_contrib +  mod_env_contrib + mod_lfo_contrib + vib_lfo_contrib);
+        const double pitch_wheel_contrib = (pitch_wheel / 12.0);
+        const double channel_pitch_contrib = (channel_pitch / 1200.0);
+        const double mod_env_contrib = (((100.0 + mod_env.value) * static_cast<double>(preset_zone.mod_env_to_pitch)) / (1200.0 * 100.0));
+        const double mod_lfo_contrib = ((mod_lfo.state * static_cast<double>(preset_zone.mod_lfo_to_pitch)) / (1200.0));
+        const double vib_lfo_contrib = ((vib_lfo.state * static_cast<double>(preset_zone.vib_lfo_to_pitch)) / (1200.0));
+        sample_position += sample_delta * pow(2.0, pitch_wheel_contrib + channel_pitch_contrib +  mod_env_contrib + mod_lfo_contrib + vib_lfo_contrib);
 
         // Handle offsets
         const u32 sample_start = preset_zone.sample_start_offset;
@@ -39,27 +39,27 @@ namespace Flan {
         const u32 loop_end = sample.loop_end + preset_zone.sample_loop_end_offset;
 
         // Loop around sample loop points, to avoid floating point precision errors with high sample position values (yes, this has happened before lmao)
-        if (preset_zone.loop_enable && sample_position > static_cast<float>(loop_end)) {
-            sample_position -= static_cast<float>(loop_end - loop_start);
+        if (preset_zone.loop_enable && sample_position > static_cast<double>(loop_end)) {
+            sample_position -= static_cast<double>(loop_end - loop_start);
         }
 
         // If looping is not enabled, and sample finished playing, set channel to off
         if (!preset_zone.loop_enable) {
-            if (sample_position > static_cast<float>(length)) {
-                vol_env.stage = static_cast<float>(off);
+            if (sample_position > static_cast<double>(length)) {
+                vol_env.stage = static_cast<double>(off);
                 return { static_cast<sample_t>(0.0f), static_cast<sample_t>(0.0f) };
             }
         }
 
         // After a lot of headaches and comparing with a bunch of different SoundFont tools like Viena, FluidSynth, and
         // Fruity Soundfont Player, these are the dB to linear conversion magic numbers I've found.
-        const float corrected_adsr_volume = powf(2.0f, ((vol_env.value - (mod_lfo.state * preset_zone.mod_lfo_to_volume)) / 6.0f))
-                                    * powf(2.0f, (-preset_zone.init_attenuation / 15.0f));
+        const double corrected_adsr_volume = pow(2.0, (vol_env.value - (mod_lfo.state * static_cast<double>(preset_zone.mod_lfo_to_volume))) / 6.0)
+                                    * pow(2.0, static_cast<double>(-preset_zone.init_attenuation) / 15.0);
 
         // Calculate stereo volume factors, and calculate the center index
-        const float mul_base = corrected_adsr_volume * channel_volume;
-        const float mul_l = mul_base * ((-(channel_panning) + 1.0f) / 2.0f) * ((-(preset_zone.pan) + 1.0f) / 2.0f);
-        const float mul_r = mul_base * ((+(channel_panning) + 1.0f) / 2.0f) * ((+(preset_zone.pan) + 1.0f) / 2.0f);
+        const double mul_base = corrected_adsr_volume * channel_volume;
+        const float mul_l = static_cast<float>(mul_base * ((-(channel_panning) + 1.0) / 2.0) * ((-static_cast<double>(preset_zone.pan) + 1.0) / 2.0));
+        const float mul_r = static_cast<float>(mul_base * ((+(channel_panning) + 1.0) / 2.0) * ((+static_cast<double>(preset_zone.pan) + 1.0) / 2.0));
         const int index = static_cast<int>(sample_position) + static_cast<int>(sample_start);
 
         float sample_data = 0;
@@ -71,7 +71,7 @@ namespace Flan {
         }
         // Linear filtering (2-tap)
         else if (filter_mode == 1) {
-            const float t = fmod(sample_position, 1.0f);
+            const float t = fmod(static_cast<float>(sample_position), 1.0f);
             const float sample_data1 = sample_from_index(index, false);
             const float sample_link1 = sample_from_index(index, true);
             const float sample_data2 = sample_from_index(index + 1, false);
@@ -86,7 +86,7 @@ namespace Flan {
                 const int sample_index = index + i;
 
                 // Get distance from sample_position
-                const float distance = abs(sample_position - static_cast<float>(sample_index));
+                const double distance = abs(sample_position - static_cast<double>(sample_index));
 
                 // Index bell curve
                 sample_data += sample_from_index(sample_index, false) * bell_curve[static_cast<int>(distance * 256)];
@@ -114,9 +114,9 @@ namespace Flan {
 
         // Handle filter
         {
-            const float n_mod_env_contrib = (100 + std::clamp(mod_env.value, -100.f, 0.f)) * preset_zone.mod_env_to_filter / 120000.f;
-            const float n_mod_lfo_contrib = mod_lfo.state * preset_zone.mod_lfo_to_filter / 1200.f;
-            filter.cutoff = preset_zone.filter.cutoff * powf(2.0f, n_mod_env_contrib + n_mod_lfo_contrib);
+            const double n_mod_env_contrib = (100 + std::clamp(mod_env.value, -100.0, 0.0)) * static_cast<double>(preset_zone.mod_env_to_filter) / 120000.0;
+            const double n_mod_lfo_contrib = mod_lfo.state * static_cast<double>(preset_zone.mod_lfo_to_filter) / 1200.0;
+            filter.cutoff = preset_zone.filter.cutoff * pow(2.0, n_mod_env_contrib + n_mod_lfo_contrib);
             filter.update(time_per_sample, sample_l, sample_r);
         }
 
