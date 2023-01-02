@@ -22,6 +22,7 @@ public:
     void _stdcall Voice_Release(TVoiceHandle handle) override;
     int _stdcall ProcessEvent(int event_id, int event_value, int flags) override;
     void _stdcall Gen_Render(PWAV32FS dest_buffer, int& length) override;
+    void _stdcall SaveRestoreState(IStream* stream, BOOL save) override;
     
     void _stdcall Idle() override;
     Flan::Renderer renderer;

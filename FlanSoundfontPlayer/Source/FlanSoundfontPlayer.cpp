@@ -177,6 +177,11 @@ intptr_t _stdcall FlanSoundfontPlayer::Dispatcher(intptr_t id, intptr_t index, i
 
 TVoiceHandle _stdcall FlanSoundfontPlayer::TriggerVoice(PVoiceParams voice_params, intptr_t set_tag)
 {
+    // Don't create a new voice if the currently selected index is -1 (invalid)
+    if (m_preset_dropdown->current_selected_index == -1) {
+        return 0;
+    }
+
     // Create new voice
     Flan::Voice* new_voice = new Flan::Voice();
     new_voice->voice_tag = set_tag;
@@ -365,9 +370,93 @@ void _stdcall FlanSoundfontPlayer::Gen_Render(PWAV32FS dest_buffer, int& length)
     }
 }
 
+void FlanSoundfontPlayer::SaveRestoreState(IStream* stream, BOOL save) {
+    // Use `stream` to push or pull values.
+    // If `save` is true, we push, otherwise we pull
+    struct {
+        wchar_t soundfont_path[260];
+        u16 bank_program;
+        double volenv_delay;
+        double volenv_attack;
+        double volenv_hold;
+        double volenv_decay;
+        double volenv_sustain;
+        double volenv_release;
+        u8 sampling_mode;
+        // todo: add scale to this struct
+    } state{};
+
+    // Handle saving
+    if (save) {
+        // Populate struct with values
+        // Copy soundfont path
+        wcscpy_s(state.soundfont_path, _countof(state.soundfont_path), scene.value_pool.get<wchar_t*>("text_soundfont_path"));
+
+        // Copy currently selected bank/program
+        state.bank_program  = static_cast<uint16_t>(scene.value_pool.get<double>("bank")) << 8;
+        state.bank_program |= static_cast<uint16_t>(scene.value_pool.get<double>("program")) & 0xFF;
+
+        // Copy volume envelope override settings
+        state.volenv_delay   = scene.value_pool.get<double>("delay");
+        state.volenv_attack  = scene.value_pool.get<double>("attack");
+        state.volenv_hold    = scene.value_pool.get<double>("hold");
+        state.volenv_decay   = scene.value_pool.get<double>("decay");
+        state.volenv_sustain = scene.value_pool.get<double>("sustain");
+        state.volenv_release = scene.value_pool.get<double>("release");
+
+        // Copy sampling mode
+        state.sampling_mode = static_cast<uint8_t>(scene.value_pool.get<double>("sampling_mode"));
+
+        // todo: add scale to this
+
+        // Write data
+        ULONG n_bytes_saved;
+        stream->Write(&state, sizeof(state), &n_bytes_saved);
+    }
+
+    // Handle loading
+    else {
+        // Read data
+        ULONG n_bytes_loaded;
+        stream->Read(&state, sizeof(state), &n_bytes_loaded);
+
+        // Extract data from struct
+        // Copy soundfont path and delete whatever was there before
+        free(scene.value_pool.get<wchar_t*>("text_soundfont_path"));
+        wchar_t* soundfont_path = new wchar_t[260];
+        wcscpy_s(soundfont_path, _countof(state.soundfont_path), state.soundfont_path);
+        scene.value_pool.set_ptr("text_soundfont_path", soundfont_path);
+
+        // Load the soundfont
+        std::string soundfont_path_8;
+        const size_t length = wcslen(soundfont_path);
+        soundfont_path_8.resize(length);
+        for (size_t i = 0; i < length; ++i) {
+            soundfont_path_8[i] = static_cast<char>(soundfont_path[i]);
+        }
+        load_soundfont(soundfont_path_8);
+
+        // Copy currently selected bank/program
+        scene.value_pool.set_value<double>("bank", state.bank_program >> 8);
+        scene.value_pool.set_value<double>("program", state.bank_program & 0xFF);
+
+        // Copy volume envelope override settings
+        scene.value_pool.set_value<double>("delay",     state.volenv_delay);
+        scene.value_pool.set_value<double>("attack",    state.volenv_attack);
+        scene.value_pool.set_value<double>("hold",      state.volenv_hold);
+        scene.value_pool.set_value<double>("decay",     state.volenv_decay);
+        scene.value_pool.set_value<double>("sustain",   state.volenv_sustain);
+        scene.value_pool.set_value<double>("release",   state.volenv_release);
+
+        // Copy sampling mode
+        scene.value_pool.set_value<double>("sampling_mode", state.sampling_mode);
+
+        // todo: add scale to this
+    }
+}
+
 void _stdcall FlanSoundfontPlayer::Idle()
 {
-    update_render(this);
 }
 
 void FlanSoundfontPlayer::create_ui()
@@ -505,8 +594,8 @@ void FlanSoundfontPlayer::create_ui()
             L"C:/Windows/System32/drivers/gm.dls",
             {2, 2},
             {1, 1, 1, 1},
-            Flan::AnchorPoint::left,
-            Flan::AnchorPoint::left,
+            Flan::AnchorPoint::right,
+            Flan::AnchorPoint::right,
             }, true);
     }
     // Create button for file browser
@@ -560,6 +649,7 @@ void FlanSoundfontPlayer::create_ui()
     {
         // Define parameters for loop
         float stride = 117.0f;
+        float extra_text_space = 40.f;
         std::string names[6] = {
             "delay",
             "attack",
@@ -586,8 +676,8 @@ void FlanSoundfontPlayer::create_ui()
         };
         for (size_t i = 0; i < 6; ++i) {
             Flan::Transform text_transform{
-                {20 + stride * static_cast<float>(i), 320},
-                {20 + stride * static_cast<float>(i + 1), 360},
+                {20 - extra_text_space + stride * static_cast<float>(i), 320 - extra_text_space},
+                {20 + extra_text_space + stride * static_cast<float>(i + 1), 360 + extra_text_space},
             };
             Flan::Transform slider_transform{
                 {20 + stride * static_cast<float>(i), 360},
