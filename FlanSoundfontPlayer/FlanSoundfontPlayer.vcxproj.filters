@@ -62,9 +62,6 @@
     <ClInclude Include="Source\WavetableOscillator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Source\ValueSystem.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Source\Scale.h">
       <Filter>Header Files</Filter>
     </ClInclude>
