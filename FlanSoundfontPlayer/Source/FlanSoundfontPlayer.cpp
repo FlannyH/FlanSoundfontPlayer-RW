@@ -29,7 +29,7 @@ HMODULE dll_handle;
 
 // ReSharper disable once CppInconsistentNaming
 // ReSharper disable twice CppParameterMayBeConst
-BOOL APIENTRY DllMain(HMODULE module, DWORD reason, LPVOID reserved) {
+BOOL APIENTRY DllMain(HMODULE module, DWORD reason, [[maybe_unused]] LPVOID reserved) {
     // This if statement only runs code when the plugin is loaded for the first time. This is perfect to initialized shared resources like look-up tables
     if (reason == DLL_PROCESS_ATTACH) {
         // Store the dll handle, to be able to load resources from the dll file
@@ -47,6 +47,7 @@ BOOL APIENTRY DllMain(HMODULE module, DWORD reason, LPVOID reserved) {
     return TRUE;
 }
 
+// todo: add dirty/clean ui state so you dont have to render every frame and save on precious cpu time cuz there's no reason why an audio plugin should use 100% gpu time.
 void update_render(FlanSoundfontPlayer* plugin) {
     while (plugin->not_destructing)
     {
@@ -54,8 +55,8 @@ void update_render(FlanSoundfontPlayer* plugin) {
         {
             std::lock_guard guard(plugin->graphics_thread_lock);
             plugin->renderer.begin_frame();
-            Flan::update_entities(plugin->scene, plugin->renderer, *plugin->input, 1.0f / 165.0f);
-            //plugin->renderer.draw_text({ {0,0} , {1280, 720} }, L"Hello World!", { 16, 16 }, { 4, 4 }, { 1, 1, 1, 1 }, 0.0f);
+            const float delta_time = plugin->calculate_delta_time();
+            Flan::update_entities(plugin->scene, plugin->renderer, *plugin->input, delta_time);
             plugin->renderer.end_frame();
             plugin->input->update(plugin->renderer.window());
         }
@@ -208,9 +209,10 @@ TVoiceHandle _stdcall FlanSoundfontPlayer::TriggerVoice(PVoiceParams voice_param
     const Flan::Preset& preset = m_soundfont.presets[m_dropdown_indices_inverse[m_preset_dropdown->current_selected_index]];
 
     // Get midi information
-    int vel = static_cast<int>(voice_params->InitLevels.Vol * 63.0f);
+    //int vel = std::clamp(static_cast<int>(powf(voice_params->InitLevels.Vol / 2.0f, 0.5f) * 127.0f), 0, 127);
+    int vel = std::min(127, static_cast<int>(VolumeToMIDIVelocity(voice_params->InitLevels.Vol)));
     int key = static_cast<int>(60 + (voice_params->FinalLevels.Pitch / 100));
-    const float corrected_key = log2f(scale[key]) * 12 + 60;
+    const double corrected_key = log2(scale[key]) * 12 + 60;
 
     // Loop over all preset zones to figure out for which ones the key and the velocity are inside the range
     for (auto& zone : preset.zones) {
@@ -311,7 +313,7 @@ void _stdcall FlanSoundfontPlayer::Voice_Release(TVoiceHandle handle)
 }
 
 // MIDI values here used for pitch wheel
-int _stdcall FlanSoundfontPlayer::ProcessEvent(int event_id, int event_value, int flags)
+int _stdcall FlanSoundfontPlayer::ProcessEvent(int event_id, int event_value, [[maybe_unused]] int flags)
 {
     switch (event_id) {
     case FPE_Tempo:
@@ -882,4 +884,11 @@ void FlanSoundfontPlayer::load_soundfont(const std::string& path) {
 
     // Update the dropdown menu
     update_preset_dropdown_menu();
+}
+
+float FlanSoundfontPlayer::calculate_delta_time() {
+    end = std::chrono::steady_clock::now();
+    const std::chrono::duration<float> delta = end - start;
+    start = std::chrono::steady_clock::now();
+    return delta.count();
 }

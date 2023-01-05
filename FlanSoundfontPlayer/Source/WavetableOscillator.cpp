@@ -67,17 +67,19 @@ namespace Flan {
         // Point sampling (1-tap)
         if (filter_mode == 0) {
             sample_data = sample_from_index(index, false);
-            sample_link = sample_from_index(index, true);
+            if (sample.type != monoSample) sample_link = sample_from_index(index, true);
         }
         // Linear filtering (2-tap)
         else if (filter_mode == 1) {
             const float t = fmod(static_cast<float>(sample_position), 1.0f);
             const float sample_data1 = sample_from_index(index, false);
-            const float sample_link1 = sample_from_index(index, true);
             const float sample_data2 = sample_from_index(index + 1, false);
-            const float sample_link2 = sample_from_index(index + 1, true);
             sample_data = lerp(sample_data1, sample_data2, t);
-            sample_link = lerp(sample_link1, sample_link2, t);
+            if (sample.type != monoSample) {
+                const float sample_link1 = sample_from_index(index, true);
+                const float sample_link2 = sample_from_index(index + 1, true);
+                sample_link = lerp(sample_link1, sample_link2, t);
+            }
         }
         // Gaussian filter (4-tap)
         else if (filter_mode == 2) {
@@ -89,8 +91,8 @@ namespace Flan {
                 const double distance = abs(sample_position - static_cast<double>(sample_index));
 
                 // Index bell curve
-                sample_data += sample_from_index(sample_index, false) * bell_curve[static_cast<int>(distance * 256)];
-                sample_link += sample_from_index(sample_index, false) * bell_curve[static_cast<int>(distance * 256)];
+                sample_data += sample_from_index(sample_index, false) * bell_curve[static_cast<int>(distance * 256) % 512];
+                if (sample.type != monoSample) sample_link += sample_from_index(sample_index, false) * bell_curve[static_cast<int>(distance * 256) % 512];
             }
         }
 
@@ -116,7 +118,7 @@ namespace Flan {
         {
             const double n_mod_env_contrib = (100 + std::clamp(mod_env.value, -100.0, 0.0)) * static_cast<double>(preset_zone.mod_env_to_filter) / 120000.0;
             const double n_mod_lfo_contrib = mod_lfo.state * static_cast<double>(preset_zone.mod_lfo_to_filter) / 1200.0;
-            filter.cutoff = preset_zone.filter.cutoff * pow(2.0, n_mod_env_contrib + n_mod_lfo_contrib);
+            filter.cutoff = preset_zone.filter.cutoff * static_cast<float>(pow(2.0, n_mod_env_contrib + n_mod_lfo_contrib));
             filter.update(time_per_sample, sample_l, sample_r);
         }
 

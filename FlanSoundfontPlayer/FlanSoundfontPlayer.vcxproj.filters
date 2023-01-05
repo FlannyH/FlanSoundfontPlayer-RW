@@ -73,5 +73,6 @@
     <None Include="FlanSoundfontPlayer.def">
       <Filter>Source Files</Filter>
     </None>
+    <None Include="cpp.hint" />
   </ItemGroup>
 </Project>

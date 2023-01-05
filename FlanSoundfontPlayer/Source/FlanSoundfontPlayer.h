@@ -35,6 +35,7 @@ public:
     std::mutex graphics_thread_lock;
     std::string soundfont_to_load;
     void load_soundfont(const std::string& path);
+    float calculate_delta_time();
 
 private:
     // UI
@@ -51,15 +52,18 @@ private:
     std::vector<Flan::Voice*> m_active_voices;
     [[deprecated]] size_t m_curr_wave_osc_idx = 0;
     std::mutex m_note_playing_mutex;
-    double m_midi_pitch = 0.0f;
-    double m_sample_rate = 1.0f;
-    double m_sample_rate_inv = 1.0f;
+    double m_midi_pitch = 0.0;
+    double m_sample_rate = 1.0;
+    double m_sample_rate_inv = 1.0;
 
     // Optimizations
     std::vector<u16> m_dropdown_indices_inverse;
     std::map<u16, int> m_dropdown_indices;
 
+    // Delta Time
+    std::chrono::time_point<std::chrono::steady_clock> start = std::chrono::steady_clock::now();
+    std::chrono::time_point<std::chrono::steady_clock> end = std::chrono::steady_clock::now();
+
     // Debug
     wchar_t m_debug_buffer[1024] = { 0 };
 };
-
