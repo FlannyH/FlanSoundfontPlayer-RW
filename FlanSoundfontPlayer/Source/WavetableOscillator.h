@@ -39,19 +39,7 @@ namespace Flan {
         intptr_t voice_tag = 0;
         bool schedule_kill = false;
 
-        [[nodiscard]] BufferSample get_sample(const double time_per_sample, const double pitch_wheel, const int filter_mode = true) {
-            BufferSample sample = { 0, 0 };
-            schedule_kill = true;
-            for (const auto osc : wave_oscs) {
-                const BufferSample new_sample = osc->get_sample(time_per_sample, pitch_wheel, filter_mode);
-                sample.left += new_sample.left;
-                sample.right += new_sample.right;
-                if (osc->schedule_kill == false) {
-                    schedule_kill = false;
-                }
-            }
-            return sample;
-        }
+        [[nodiscard]] BufferSample get_sample(double time_per_sample, double pitch_wheel, int filter_mode = true);
 
         void release() const {
             for (const auto osc : wave_oscs) {

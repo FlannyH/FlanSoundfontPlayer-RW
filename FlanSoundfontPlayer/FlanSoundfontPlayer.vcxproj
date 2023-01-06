@@ -205,9 +205,11 @@ xcopy "$(OutDir)FlanSoundfontPlayer.dll" "C:\Program Files\Image-Line\FL Studio 
       <TreatWarningAsError Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</TreatWarningAsError>
     </ClCompile>
     <ClCompile Include="Source\main.cpp" />
+    <ClCompile Include="Source\Scale.cpp" />
     <ClCompile Include="Source\WavetableOscillator.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Source\MidiNames.h" />
     <ClInclude Include="Source\FlanSoundfontPlayer.h" />
     <ClInclude Include="Libraries\FruityPlug\fp_cplug.h" />
     <ClInclude Include="Libraries\FruityPlug\fp_def.h" />

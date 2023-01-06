@@ -2,6 +2,7 @@
 #include <windows.h>
 #include <ios>
 #include <cstdio>
+#include "MidiNames.h"
 
 // Plugin info struct that FL Studio wants
 TFruityPlugInfo plug_info = {
@@ -374,15 +375,15 @@ void FlanSoundfontPlayer::SaveRestoreState(IStream* stream, BOOL save) {
     struct {
         wchar_t soundfont_path[260];
         wchar_t scale_name[260];
-        u16 bank_program;
-        double volenv_delay;
-        double volenv_attack;
-        double volenv_hold;
-        double volenv_decay;
-        double volenv_sustain;
-        double volenv_release;
-        u8 sampling_mode;
-        Flan::Scale scale;
+        u16 bank_program = 0x0000;
+        double volenv_delay = 0.0;
+        double volenv_attack = 0.0;
+        double volenv_hold = 0.0;
+        double volenv_decay = 0.0;
+        double volenv_sustain = 1.0;
+        double volenv_release = 0.0;
+        u8 sampling_mode = 2;
+        Flan::Scale scale{};
         // todo: add scale to this struct
     } state{};
 
@@ -466,6 +467,56 @@ void FlanSoundfontPlayer::SaveRestoreState(IStream* stream, BOOL save) {
     }
 }
 
+int FlanSoundfontPlayer::ProcessParam(int index, int value, int rec_flags) {
+    return TCPPFruityPlug::ProcessParam(index, value, rec_flags);
+}
+
+void FlanSoundfontPlayer::GetName(int section, int index, int value, char* name) {
+    if (section == FPN_Semitone) {
+        const auto preset_index = m_preset_dropdown->current_selected_index;
+        if (preset_index == -1) {
+            return;
+        }
+        const auto preset_id = m_dropdown_indices_inverse[preset_index];
+        const auto preset_zones = m_soundfont.presets[preset_id].zones;
+
+        // If this a drum bank, show drum note names for that
+        if (preset_id >= 0x8000 || (preset_id & 0xFF) == 127) {
+            for (const auto& zone : preset_zones) {
+                if (zone.key_range_low <= index && zone.key_range_high >= index) {
+                    if (index >= drum_names_start && index < static_cast<int>(drum_names_start + std::size(drum_names))) {
+                        sprintf_s(name, 32, "%s", drum_names[index - drum_names_start]);
+                    }
+                    else {
+                        sprintf_s(name, 32, "%s%i", note_names[index % 12], index / 12);
+                    }
+                }
+            }
+        }
+
+        // Otherwise just use regular note names
+        else {
+            for (const auto& zone : preset_zones) {
+                if (zone.key_range_low <= index && zone.key_range_high >= index) {
+                    if (scale.is_default() == false) {
+                        // Correct for scale
+                        const double corrected_key = log2(scale[index]) * 12 + 60;
+                        const int key = static_cast<int>(round(corrected_key));
+                        const int note = key % 12;
+                        const int octave = key / 12;
+                        const int cents = static_cast<int>((corrected_key - key) * 100);
+                        sprintf_s(name, 32, "%s%i (%s%i cents)", note_names[note], octave, cents >= 0 ? "+" : "", cents);
+                    }
+                    else {
+                        sprintf_s(name, 32, "%s%i", note_names[index % 12], index / 12);
+                    }
+                }
+            }
+        }
+    }
+    TCPPFruityPlug::GetName(section, index, value, name);
+}
+
 void _stdcall FlanSoundfontPlayer::Idle()
 {
 }
@@ -514,6 +565,9 @@ void FlanSoundfontPlayer::create_ui()
 
             // Otherwise, set the current index of the dropdown to match the preset
             m_preset_dropdown->current_selected_index = m_dropdown_indices[preset_key];
+
+            // Tell FL Studio that the note names may have changed
+            PlugHost->Dispatcher(HostTag, FHD_NamesChanged, 0, FPN_Semitone);
         });
     }
     // Create program text
@@ -557,6 +611,9 @@ void FlanSoundfontPlayer::create_ui()
 
             // Otherwise, set the current index of the dropdown to match the preset
             m_preset_dropdown->current_selected_index = m_dropdown_indices[preset_key];
+
+            // Tell FL Studio that the note names may have changed
+            PlugHost->Dispatcher(HostTag, FHD_NamesChanged, 0, FPN_Semitone);
         });
     }
     // Create preset text
@@ -591,6 +648,9 @@ void FlanSoundfontPlayer::create_ui()
             const double program = m_dropdown_indices_inverse[index] & 0xFF;
             scene.value_pool.set_value<double>("program", program);
             scene.value_pool.set_value<double>("bank", bank);
+
+            // Tell FL Studio that the note names may have changed
+            PlugHost->Dispatcher(HostTag, FHD_NamesChanged, 0, FPN_Semitone);
         });
     }
     // Create textbox for file browser
@@ -769,6 +829,9 @@ void FlanSoundfontPlayer::create_ui()
                     wchar_t* new_name = new wchar_t[260];
                     memcpy_s(new_name, sizeof(wchar_t) * 260, sz_file, sizeof(sz_file));
                     scene.value_pool.set_ptr("text_scale", new_name);
+
+                    // Tell FL Studio that the note names may have changed
+                    PlugHost->Dispatcher(HostTag, FHD_NamesChanged, 0, FPN_Semitone);
                 }
             }, { L"...", {2, 2}, {0, 0, 0, 1}, Flan::AnchorPoint::center, Flan::AnchorPoint::center });
     }
@@ -864,9 +927,13 @@ void FlanSoundfontPlayer::update_preset_dropdown_menu()
 }
 
 void FlanSoundfontPlayer::load_soundfont(const std::string& path) {
-    // Load soundfont
-    m_soundfont.clear();
-    m_soundfont.from_file(path);
+    // Lock the wavetables so we don't surprise the audio render thread
+    {
+        std::lock_guard guard{ m_note_playing_mutex };
+        // Load soundfont
+        m_soundfont.clear();
+        m_soundfont.from_file(path);
+    }
 
     // Get text in the browse box
     wchar_t* text_soundfont_path = reinterpret_cast<wchar_t*>(scene.value_pool.values["text_soundfont_path"]);

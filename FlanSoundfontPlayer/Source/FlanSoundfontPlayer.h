@@ -1,7 +1,5 @@
 #pragma once
 #include <thread>
-#include <fstream>
-#include <iostream>
 #include <mutex>
 
 #include "Scale.h"
@@ -24,6 +22,8 @@ public:
     int _stdcall ProcessEvent(int event_id, int event_value, int flags) override;
     void _stdcall Gen_Render(PWAV32FS dest_buffer, int& length) override;
     void _stdcall SaveRestoreState(IStream* stream, BOOL save) override;
+    int _stdcall ProcessParam(int index, int value, int rec_flags) override;
+    void _stdcall GetName(int section, int index, int value, char* name) override;
     
     void _stdcall Idle() override;
     Flan::Renderer renderer;
@@ -48,9 +48,7 @@ private:
     Flan::Soundfont m_soundfont;
 
     // Voices
-    [[deprecated]] Flan::WavetableOscillator m_wave_oscs[N_WAVE_OSCS]{};
     std::vector<Flan::Voice*> m_active_voices;
-    [[deprecated]] size_t m_curr_wave_osc_idx = 0;
     std::mutex m_note_playing_mutex;
     double m_midi_pitch = 0.0;
     double m_sample_rate = 1.0;
