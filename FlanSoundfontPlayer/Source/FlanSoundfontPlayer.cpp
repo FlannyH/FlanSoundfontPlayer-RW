@@ -45,6 +45,9 @@ BOOL APIENTRY DllMain(HMODULE module, DWORD reason, [[maybe_unused]] LPVOID rese
             Flan::bell_curve[ix] = result / 2039.f; // magic number to make the volume similar to the other filtering modes
         }
     }
+    if (reason == DLL_PROCESS_DETACH) {
+        glfwTerminate();
+    }
     return TRUE;
 }
 
@@ -118,7 +121,6 @@ FlanSoundfontPlayer::~FlanSoundfontPlayer()
 
     // Delete the window
     glfwDestroyWindow(renderer.window());
-    glfwTerminate();
 }
 
 intptr_t _stdcall FlanSoundfontPlayer::Dispatcher(intptr_t id, intptr_t index, intptr_t value)
@@ -177,6 +179,11 @@ TVoiceHandle _stdcall FlanSoundfontPlayer::TriggerVoice(PVoiceParams voice_param
 {
     // Don't create a new voice if the currently selected index is -1 (invalid)
     if (m_preset_dropdown->current_selected_index == -1) {
+        return 0;
+    }
+
+    // If a soundfont is currently loading, please don't do anything
+    if (soundfont_to_load.empty() == false) {
         return 0;
     }
 
@@ -289,16 +296,16 @@ TVoiceHandle _stdcall FlanSoundfontPlayer::TriggerVoice(PVoiceParams voice_param
                 const double pitch_correction = (wave_osc.channel_pitch / 100.0) + static_cast<double>(zone.root_key_offset) + static_cast<double>(zone.tuning);
                 if (zone.key_override < 128)
                     key = zone.key_override;
-                const float scaled_key = 60 + static_cast<float>(key - 60) * zone.scale_tuning;
+                const double scaled_key = 60 + static_cast<double>(key - 60) * zone.scale_tuning;
                 const double key_multiplier = Flan::lerp(
                     scale[static_cast<size_t>(scaled_key)],
                     scale[static_cast<size_t>(scaled_key) + 1],
-                    fmodf(scaled_key, 1.0f));
+                    fmodf(scaled_key, 1.0));
                 wave_osc.sample_delta = (static_cast<double>(wave_osc.sample.base_sample_rate) * key_multiplier * (pow(2.0, pitch_correction / 12.0))) * m_sample_rate_inv;
-                wave_osc.preset_zone.vol_env.hold *= static_cast<double>(powf(2.f, wave_osc.preset_zone.key_to_vol_env_hold * static_cast<float>(key - 60) / (1200)));
-                wave_osc.preset_zone.vol_env.decay *= static_cast<double>(powf(2.f, wave_osc.preset_zone.key_to_vol_env_decay * static_cast<float>(key - 60) / (1200)));
-                wave_osc.preset_zone.mod_env.hold *= static_cast<double>(powf(2.f, wave_osc.preset_zone.key_to_mod_env_hold * static_cast<float>(key - 60) / (1200)));
-                wave_osc.preset_zone.mod_env.decay *= static_cast<double>(powf(2.f, wave_osc.preset_zone.key_to_mod_env_decay * static_cast<float>(key - 60) / (1200)));
+                wave_osc.preset_zone.vol_env.hold *= pow(2.0, wave_osc.preset_zone.key_to_vol_env_hold * static_cast<double>(key - 60) / 1200);
+                wave_osc.preset_zone.vol_env.decay *= pow(2.0, wave_osc.preset_zone.key_to_vol_env_decay * static_cast<double>(key - 60) / 1200);
+                wave_osc.preset_zone.mod_env.hold *= pow(2.0, wave_osc.preset_zone.key_to_mod_env_hold * static_cast<double>(key - 60) / 1200);
+                wave_osc.preset_zone.mod_env.decay *= pow(2.0, wave_osc.preset_zone.key_to_mod_env_decay * static_cast<double>(key - 60) / 1200);
             }
         }
     }
@@ -383,7 +390,7 @@ void FlanSoundfontPlayer::SaveRestoreState(IStream* stream, BOOL save) {
         double volenv_sustain = 1.0;
         double volenv_release = 0.0;
         u8 sampling_mode = 2;
-        Flan::Scale scale{};
+        Flan::Scale scale;
         // todo: add scale to this struct
     } state{};
 
@@ -474,14 +481,16 @@ int FlanSoundfontPlayer::ProcessParam(int index, int value, int rec_flags) {
 void FlanSoundfontPlayer::GetName(int section, int index, int value, char* name) {
     if (section == FPN_Semitone) {
         const auto preset_index = m_preset_dropdown->current_selected_index;
-        if (preset_index == -1) {
-            return;
-        }
         const auto preset_id = m_dropdown_indices_inverse[preset_index];
         const auto preset_zones = m_soundfont.presets[preset_id].zones;
 
+        // If there's no preset selected, reset all the names to none, which will make FL remove the name (hopefully)
+        if (preset_index == -1) {
+            sprintf_s(name, 32, "");
+        }
+
         // If this a drum bank, show drum note names for that
-        if (preset_id >= 0x8000 || (preset_id & 0xFF) == 127) {
+        else if (preset_id >= 0x8000 || (preset_id & 0xFF) == 127) {
             for (const auto& zone : preset_zones) {
                 if (zone.key_range_low <= index && zone.key_range_high >= index) {
                     if (index >= drum_names_start && index < static_cast<int>(drum_names_start + std::size(drum_names))) {
@@ -498,7 +507,7 @@ void FlanSoundfontPlayer::GetName(int section, int index, int value, char* name)
         else {
             for (const auto& zone : preset_zones) {
                 if (zone.key_range_low <= index && zone.key_range_high >= index) {
-                    if (scale.is_default() == false) {
+                    //if (scale.is_default() == false) {
                         // Correct for scale
                         const double corrected_key = log2(scale[index]) * 12 + 60;
                         const int key = static_cast<int>(round(corrected_key));
@@ -506,10 +515,10 @@ void FlanSoundfontPlayer::GetName(int section, int index, int value, char* name)
                         const int octave = key / 12;
                         const int cents = static_cast<int>((corrected_key - key) * 100);
                         sprintf_s(name, 32, "%s%i (%s%i cents)", note_names[note], octave, cents >= 0 ? "+" : "", cents);
-                    }
-                    else {
-                        sprintf_s(name, 32, "%s%i", note_names[index % 12], index / 12);
-                    }
+                    //}
+                    //else {
+                    //    sprintf_s(name, 32, "%s%i", note_names[index % 12], index / 12);
+                    //}
                 }
             }
         }
@@ -560,6 +569,9 @@ void FlanSoundfontPlayer::create_ui()
             // If the soundfont does not contain a preset at this key, the selection is invalid
             if (!m_soundfont.presets.contains(preset_key)) {
                 m_preset_dropdown->current_selected_index = -1;
+
+                // Tell FL Studio that the note names may have changed
+                PlugHost->Dispatcher(HostTag, FHD_NamesChanged, 0, FPN_Semitone);
                 return;
             }
 
@@ -606,6 +618,9 @@ void FlanSoundfontPlayer::create_ui()
             // If the soundfont does not contain a preset at this key, the selection is invalid
             if (!m_soundfont.presets.contains(preset_key)) {
                 m_preset_dropdown->current_selected_index = -1;
+
+                // Tell FL Studio that the note names may have changed
+                PlugHost->Dispatcher(HostTag, FHD_NamesChanged, 0, FPN_Semitone);
                 return;
             }
 

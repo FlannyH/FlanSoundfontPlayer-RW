@@ -71,7 +71,7 @@ bool Flan::Scale::from_file(const std::string& path) {
 
         // Store description
         if (line_number == 0) {
-            m_description = line;
+            strcpy_s(m_description, line.c_str());
             line_number++;
             continue;
         }
@@ -166,5 +166,5 @@ void Flan::Scale::init_default() {
     m_is_default = true;
 
     // Set the description
-    m_description = "12-tone equal temperament";
+    strcpy_s(m_description, "12-tone equal temperament");
 }

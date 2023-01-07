@@ -6,7 +6,7 @@ namespace Flan {
     class Scale {
     private:
         double m_note_values[128]{}; // Array that maps input midi keys to an output pitch multiplier, where 1.0f corresponds to midi key 60
-        std::string m_description;
+        char m_description[128];
         bool m_is_default = true;
 
         // Checks whether the currently loaded scale is 12 tone equal temperament
